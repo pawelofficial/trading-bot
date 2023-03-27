@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd 
 import random
 import torch 
-
+from scipy.stats import norm
 import matplotlib.pyplot as plt 
 
 # this scripty script puts together cool indicators, for now the goal is to have 
@@ -51,7 +51,8 @@ class indicators:
             ,'cci':self.fun_cci
             ,'cumret':self.fun_cumret
             ,'dlr':self.fun_dlr
-#            ,'nadaraya': self.fun_nadaraya
+#            ,'nadaraya_watson': self.fun_nadaraya_watson
+            ,'relative_volatility':self.fun_relative_volatility
         }
         self.q_cols  = lambda : [c for c in list(i.df.columns) if  c[:2] == 'f-'] # columns for quantile calcls start with f- 
         self.b_cols = lambda : [c for c in list(i.df.columns) if  c[:2] == 'q.'] # columns to dump with quantile booleans
@@ -65,7 +66,7 @@ class indicators:
             }
         
     # plots stuff and shows it ! 
-    def plot_stuff(self,df = None,extra_col=None,plot_flag=True):
+    def plot_stuff(self,df = None,extra_col : str =None,plot_flag=True):
         if df is None:
             df=self.df 
         import matplotlib.pyplot as plt 
@@ -73,7 +74,6 @@ class indicators:
         
         c=df[extra_col]/(np.max(df[extra_col])-np.min(df[extra_col]))
         ax[0].scatter(df.index,df.close,c=df[extra_col],cmap='Blues',marker='.')
-#        ax[0].plot(df.index,df.close,'--')
         if 'entry' in df.columns:
             entry_mask=df['entry']==1
             ax[0].plot(df[entry_mask].index,df[entry_mask]['close'] ,'^m')
@@ -81,7 +81,7 @@ class indicators:
         if 'exit' in df.columns:
             exit_mask=df['exit']==1
             ax[0].plot(df[exit_mask].index,df[exit_mask]['close'] ,'vr')
-            ax[0].grid()
+            ax[0].grid()    
         if extra_col is not None:
             ax[1].plot(df.index,df[extra_col])
             ax[1].grid()
@@ -243,12 +243,11 @@ class indicators:
     def fun_ema_distance(self,src_col='close', window : int = 25 , inplace = True ):
         colname=f'f-ema-{src_col}-{window}'
         f = lambda df,col,window : (df[col]-df[col].ewm(span=window).mean())/df[col].rolling(window=window).std()
-        
         if inplace:
             self.df[colname]=f(df=self.df,col=src_col,window=window)
             return 
         return f(df=self.df,col=src_col,window=window)
-
+    
 # momentum indicators 
     #  rsi 
     def fun_rsi(self, window: int = 25 , inplace = True ):
@@ -389,19 +388,49 @@ class indicators:
             self.df[colname]=f(df=self.df)
             return 
         return f(df=self.df)
+    # relative volatility 
+    def fun_relative_volatility(self,src_col='close',window1=5,window2=25,inplace=True):
+        colname=f'f-volatility'
+        f= lambda df,col,window1,window2 : df[col].rolling(window=window1).std()/df[col].rolling(window=window2).std()
+        if inplace:
+            self.df[colname]=f(df=self.df,col=src_col,window1=window1,window2=window2)
+            return 
+        return f(df=self.df,col=src_col,window1=window1,window2=window2)
 
+
+    #### tbd 
+    ###def nadaraya_watson(self,x, y, h, window,std_w=0.25):
+    ###    y_hat = []
+    ###    for i in range(len(x)):
+    ###        # Calculate the weights for the data points within the window
+    ###        k = np.exp(-0.5 * ((x - x[i]) / h) ** 2)
+    ###        w_k = np.where(window, k, 0)
+    ###        # Calculate the estimator
+    ###        y_hat.append(np.sum(w_k * y) / np.sum(w_k))
+    ###        
+    ###    return y_hat-y.std()*std_w#,y_hat+y.std()*std_w
+    #### tbd
+    ###def fun_nadaraya_watson(self,window: int = 25, h=1,col='close',inplace=True):
+    ###    colname = f'f-nadaraya'
+    ###    f = lambda df,window,h,col: self.nadaraya_watson(df['index'].values, df['close'].values, h,window)
+    ###    if inplace:
+    ###        df[colname]=f(df=self.df,window=window,h=h,col=col)
+    ###        return 
+    ###    return f(df=self.df,window=window,h=h,col=col)
 
 if __name__=='__main__':
     u=Utils()
     df=u.read_csv()
-
-    # calculate indicator columns 
+    df['index']=df.index
     i=indicators(df=df)
-#    f=i.funs_d['ema_distance']
-#    f()
-#    print(i.df)
-#    i.plot_stuff(df=i.df,extra_col='f-ema-close-25')
-#    exit(1)
+   
+    df['fun']=i.fun_relative_volatility(inplace=False)
+
+    x=df['index']
+    close=df['close']
+    fig, ax = plt.subplots(1, 1)
+    i.plot_stuff(df=df,extra_col='fun')
+
     
     
     for fun in i.funs_d.values():
