@@ -352,7 +352,7 @@ class indicators:
         self.df[colname]=f(df=self.df)
         
     # relative volatility 
-    def 2(self,src_col='close',window1=5,window2=25,inplace=True):
+    def fun_relative_volatility(self,src_col='close',window1=5,window2=25,inplace=True):
         colname=f'f-volatility'
         f= lambda df,col,window1,window2 : df[col].rolling(window=window1).std()/df[col].rolling(window=window2).std()
         self.df[colname]=f(df=self.df,col=src_col,window1=window1,window2=window2)
