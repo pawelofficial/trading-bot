@@ -1,6 +1,7 @@
 # this script takes price action data and computes potential entries based on roi of those points 
 # opposite signal can be used as exit signal 
 
+import matplotlib.pyplot as plt 
 from utils import Utils as u 
 import pandas as pd 
 import numpy as np 
@@ -72,6 +73,26 @@ def clean_lookaheads(df,cols=['LONG_BL','SHORT_BL','LONGS_SCORE','SHORTS_SCORE']
     return df,zeroed_longs,zeroes_shorts
 #-------------------------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------------------------
+
+import pandas as pd
+import numpy as np
+from scipy.signal import find_peaks
+
+def trtp_strategy(df, smoothing_window=20, derivative_window=5, prominence=None):
+    signal = df['close'].to_numpy().flatten()
+    
+    # Smooth the signal with a moving average filter
+    smoothed_signal=df['close'].ewm(span=smoothing_window).mean()/df['close'].mean()
+
+    # Compute the derivative of the smoothed signal
+    derivative_signal = np.gradient(smoothed_signal, derivative_window)
+
+    # Detect peaks in the derivative signal
+    max_indexes, _ = find_peaks(derivative_signal,threshold ) 
+    min_indexes, _ = find_peaks(-derivative_signal, prominence=prominence)
+    return max_indexes,min_indexes
+    
+
 def eval_strategy(df,long_entry='LONG_BL',short_entry='SHORT_BL',long_exit='SHORT_BL',short_exit='LONG_BL'): 
     long_portfolio = 100 
     long_amo=0
@@ -114,6 +135,17 @@ def eval_strategy(df,long_entry='LONG_BL',short_entry='SHORT_BL',long_exit='SHOR
 if __name__=='__main__':
     import datetime 
     df=u().read_csv()           # read csv 
+    print(len(df))
+    #df=df.iloc[:500]
+    max_indexes,min_indexes=trtp_strategy(df=df)
+    ser=pd.Series(max_indexes)
+    plt.plot(df.index,df['close'],'-x')
+    plt.plot(ser,  df['close'].iloc[ser],'o' )
+    plt.show()
+#    print(max_indexes,min_indexes)
+#    df=df[cols]
+#    print(df.head(250))
+    exit(1)
 
     
     df['index']=df.index        # add index col 

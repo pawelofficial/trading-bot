@@ -36,7 +36,11 @@ class indicators:
         self.nlq=self.make_nlq() # non lineear quantiles 
         self.raw_data_columns=['epoch','timestamp','low','high']
         self.funs_d={
-            'ema_distance': self.fun_ema_distance
+            'ema_distance': self.fun_ema_distance (self.fun_ema_distance, {})
+        }
+        
+        self.funs_d_old={
+            'ema_distance': self.fun_ema_distance (self.fun_ema_distance, {})
             ,'rsi':self.fun_rsi
             ,'kama':self.fun_kama
             ,'ao':self.fun_ao
@@ -96,7 +100,6 @@ class indicators:
         f = lambda x: np.sin(2*x)
         f= lambda x: np.round(1/(1 + np.exp(-(x-0.5 )*10 )),3) # sigmoid function is the best function out there anon 
 
-        
         yy=[f(i) for i in x]
         yy=(yy-min(yy))/(max(yy)-min(yy))
 
@@ -240,162 +243,119 @@ class indicators:
             return 
         return f(df=self.df,col=src_col,window=window)
     #  ema 
-    def fun_ema_distance(self,src_col='close', window : int = 25 , inplace = True ):
+    def fun_ema_distance(self,src_col='close', window : int = 25):
         colname=f'f-ema-{src_col}-{window}'
         f = lambda df,col,window : (df[col]-df[col].ewm(span=window).mean())/df[col].rolling(window=window).std()
-        if inplace:
-            self.df[colname]=f(df=self.df,col=src_col,window=window)
-            return 
-        return f(df=self.df,col=src_col,window=window)
+        self.df[colname]=f(df=self.df,col=src_col,window=window)
     
 # momentum indicators 
     #  rsi 
     def fun_rsi(self, window: int = 25 , inplace = True ):
         colname = f'f-rsi-close-{window}'
         f= lambda df,window : tam.rsi(close=df['close'],window=window)
-        if inplace:
-            df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)   
+        self.df[colname]=f(df=self.df,window=window)
+        
     # kama ema 
     def fun_kama(self, window :int =  10, pow1 : int = 2, pow2 : int = 30,  inplace = True ):
         colname = f'f-kama-close-{window}-{pow1}-{pow2}'
         f= lambda df,window,pow1,pow2: tam.kama(close=df['close'], window=window,pow1=pow1,pow2=pow2) 
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window,pow1=pow1,pow2=pow2)
-            return 
-        return f(df=self.df,window=window,pow1=pow1,pow2=pow2)
+        self.df[colname]=f(df=self.df,window=window,pow1=pow1,pow2=pow2)
     # awesome indicator 
+    
     def fun_ao(self,window1:int =5 , window2=34, inplace = True ):
         colname=f'f-ao-{window1}-{window2}'
         f= lambda df,window1,window2 : tam.awesome_oscillator(high=df['high'],
                                                               low=df['low'],
                                                               window1=window1,
                                                               window2=window2  )
-        if inplace:
-            df[colname]=f(df=self.df,window1=window1,window2=window2)
-            return 
-        return f(df=self.df,window1=window1,window2=window2)
+        self.df[colname]=f(df=self.df,window1=window1,window2=window2)
 
 # volume indicators 
     # adi 
     def fun_adi(self, inplace = True ):
         colname = f'f-adi'
         f= lambda df : tav.acc_dist_index(df['high'],df['low'],df['close'],df['volume'])
-        if inplace:
-            self.df[colname]=f(df=self.df)
-            return 
-        return f(df=self.df)
+        self.df[colname]=f(df=self.df)
     # chaikin 
     def fun_chaikin(self, window : int = 20, inplace = True ):
         colname = f'f-chaikin-{window}'
         f= lambda df,window : tav.chaikin_money_flow(df['high'],df['low'],df['close'],df['volume'],window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)  
+        self.df[colname]=f(df=self.df,window=window)
+        
     # ease of movement 
     def fun_eom(self, window : int = 14, inplace = True ):
         colname = f'f-eom-{window}'
         f= lambda df,window : tav.ease_of_movement(df['high'],df['low'],df['volume'],window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)
+        self.df[colname]=f(df=self.df,window=window)
 
 # volatility indicators 
     # average_true_range
     def fun_atr(self, window : int = 14, inplace = True ):
         colname = f'f-atr-{window}'
         f= lambda df,window : tavl.average_true_range(df['high'],df['low'],df['close'],window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)
+        self.df[colname]=f(df=self.df,window=window)
+        
     # boiilinger percentage indicator - use 
     def fun_pband(self,  window : int = 20, window_dev : int = 2, inplace = True ):
         colname = f'f-pband-close-{window}-{window_dev}'
         f= lambda df,window,window_dev : tavl.bollinger_pband(df['close'],window,window_dev)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window,window_dev=window_dev)
-            return 
-        return f(df=self.df,window=window,window_dev=window_dev)
+        self.df[colname]=f(df=self.df,window=window,window_dev=window_dev)
+        
     # boilinger band width - use 
     def fun_wband(self, window : int = 20, window_dev : int = 2, inplace = True ):
         colname = f'f-wband-close-{window}-{window_dev}'
         f= lambda df,window,window_dev : tavl.bollinger_wband(df['close'],window,window_dev)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window,window_dev=window_dev)
-            return 
-        return f(df=self.df,window=window,window_dev=window_dev)
+        self.df[colname]=f(df=self.df,window=window,window_dev=window_dev)
 
 # trend indicators 
     # adx  - wywala sie 
     def fun_adx(self, window : int = 14, inplace = True ):
         colname = f'f-adx-{window}'
         f= lambda df,window : tat.adx(high=df['high'],low=df['low'], close=df['close'],window=window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)
+        self.df[colname]=f(df=self.df,window=window)
+        
     # macd 
     def fun_macd(self, window_slow : int = 26,window_fast: int = 12,  inplace = True ):
         colname = f'f-macd-{window_slow}-{window_fast}'
         f= lambda df,window_slow,window_fast : tat.macd(close=df['close'],window_slow=window_slow,window_fast=window_fast)
-        if inplace:
-            self.df[colname]=f(df=self.df,window_slow=window_slow,window_fast=window_fast)
-            return 
-        return f(df=self.df,window_slow=window_slow,window_fast=window_fast)
+        self.df[colname]=f(df=self.df,window_slow=window_slow,window_fast=window_fast)
+        
     # aroon 
     def fun_aroon(self, window : int = 25,  inplace = True ):
         colname = f'f-aroon-close-{window}'
         f= lambda df,window : tat.aroon_down(close=df['close'],window=window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)
+        self.df[colname]=f(df=self.df,window=window)
+        
     # dpo - wywala sie 
     def fun_dpo(self, window : int = 20, inplace = True ):
         colname = f'f-dpo-close-{window}'
         f= lambda df,window : tat.dpo(close=df['close'],window=window)
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window)
-            return 
-        return f(df=self.df,window=window)
+        self.df[colname]=f(df=self.df,window=window)
+        
     # cci
     def fun_cci(self, window : int = 20, constant=0.0015, inplace = True ):
         colname = f'f-cci-{window}-{constant}'
         f= lambda df,window,constant : tat.cci(high=df['high'],low=df['low'],close=df['close'], window=window, constant=constant )
-        if inplace:
-            self.df[colname]=f(df=self.df,window=window,constant=constant)
-            return 
-        return f(df=self.df,window=window,constant=constant)
+        self.df[colname]=f(df=self.df,window=window,constant=constant)
     
 # other indicators 
     # cumulative return
     def fun_cumret(self, inplace = True ):
         colname = f'f-cumret'
         f= lambda df : tao.cumulative_return(close=df['close'])
-        if inplace:
-            self.df[colname]=f(df=self.df)
-            return 
-        return f(df=self.df)
+        self.df[colname]=f(df=self.df)
+        
     # dlr
     def fun_dlr(self,inplace = True ):
         colname = f'f-dlr'
         f= lambda df : tao.daily_log_return(close=df['close'])
-        if inplace:
-            self.df[colname]=f(df=self.df)
-            return 
-        return f(df=self.df)
+        self.df[colname]=f(df=self.df)
+        
     # relative volatility 
-    def fun_relative_volatility(self,src_col='close',window1=5,window2=25,inplace=True):
+    def 2(self,src_col='close',window1=5,window2=25,inplace=True):
         colname=f'f-volatility'
         f= lambda df,col,window1,window2 : df[col].rolling(window=window1).std()/df[col].rolling(window=window2).std()
-        if inplace:
-            self.df[colname]=f(df=self.df,col=src_col,window1=window1,window2=window2)
-            return 
-        return f(df=self.df,col=src_col,window1=window1,window2=window2)
+        self.df[colname]=f(df=self.df,col=src_col,window1=window1,window2=window2)
 
 
     #### tbd 
@@ -422,6 +382,16 @@ if __name__=='__main__':
     u=Utils()
     df=u.read_csv()
     df['index']=df.index
+    i=indicators(df=df)   
+    for fun in i.funs_d.values():
+        fun()
+
+    print(i.df.columns)
+
+if __name__=='__main__old':
+    u=Utils()
+    df=u.read_csv()
+    df['index']=df.index
     i=indicators(df=df)
    
     df['fun']=i.fun_relative_volatility(inplace=False)
@@ -434,8 +404,9 @@ if __name__=='__main__':
     
     
     for fun in i.funs_d.values():
-        fun()
+        fun(window=10)
         
+    
     print(i.df.columns)
     print(i.q_cols())
     
