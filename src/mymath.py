@@ -116,9 +116,8 @@ class myMath:
     def dump_csv(self,df :pd.DataFrame(),filename : str ='math_df' ,cols :list =[] ):
         if cols ==[]:
             cols=df.columns
-            
-        
-        df[cols].to_csv(filename + '.csv',columns=cols,index=False,quotechar='"',na_rep='',quoting=1)
+        filename=filename.replace('.csv','')+'.csv'
+        df[cols].to_csv(filename,columns=cols,index=False,quotechar='"',na_rep='',quoting=1)
         
 # this class appends strategy-entry  and strategy-exit boolean columns to math_df  as well as other boolean columns, columns are in capital to know they come from here 
 class myEntries(myMath):
