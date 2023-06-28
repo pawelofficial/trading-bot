@@ -94,7 +94,7 @@ class myMath:
             y_nad.append(nadaraya(Xi=Xi,Yi=Yi,x=x,h=h))
         return y_nad
     # returns a daraframe aggregated to a timeframe using a src column name 
-    def aggregate(self,df :pd.DataFrame = pd.DataFrame({}), scale : int = 5, src_col : str = 'timestamp',cols : list = ['open','close','low','high']):
+    def aggregate(self,df :pd.DataFrame = pd.DataFrame({}), scale : int = 5, src_col : str = 'timestamp',cols : list = ['open','close','low','high','volume']):
         if df.empty:
             df=self.math_df
         if src_col not in df.columns:
@@ -110,7 +110,7 @@ class myMath:
             ser=g.apply(self.agg_funs_d[col])[col].reset_index(name=col)
             agg_df=agg_df.merge(ser,left_on=dt_col,right_on=dt_col)
 
-        agg_df['index']=agg_df.index
+        #agg_df['index']=agg_df.index
         return agg_df
     # dumps df to csv      
     def dump_csv(self,df :pd.DataFrame(),filename : str ='math_df' ,cols :list =[] ):

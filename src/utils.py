@@ -25,10 +25,13 @@ class Utils:
     #        
     #    return df
      
+    def dump_csv(self,df,fps):
+        df.to_csv(path_or_buf=fps,header=1,index=False,quoting=2)
+        
     def dump_df(self,df,fname='data'):
         fname=fname.replace('.csv','')+'.csv'
         fp=os.path.join(self.data_dir,fname)
-        df.to_csv(path_or_buf=fp,header=0,index=False)
+        df.to_csv(path_or_buf=fp,header=1,index=False )
     
     
     def plot_candles(self,df,
