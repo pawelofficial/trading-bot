@@ -292,7 +292,7 @@ def plot_candlestick2(candles_df : pd.DataFrame
 
 
 # plts candlestick fren 
-def plot_candlestick(df
+def plot_candlestick_old(df
                      , df2 :pd.DataFrame = pd.DataFrame({})
                      , shorts_ser:pd.Series = pd.Series(dtype=float)
                      , longs_ser:pd.Series = pd.Series(dtype=float)
@@ -388,6 +388,17 @@ def aggregate(df :pd.DataFrame = pd.DataFrame({}),
     return agg_df
     
     
+def pca_plot(df,labels=None,n_components=None):
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
+
+    # Assume `df` is your DataFrame
+    pca = PCA(n_components=n_components)
+    transformed = pca.fit_transform(df)
+
+    plt.scatter(transformed[:,0], transformed[:,1],c=labels, cmap='viridis')
+    plt.show()
+
 
 
 

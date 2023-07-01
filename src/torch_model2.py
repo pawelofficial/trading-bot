@@ -9,7 +9,7 @@ from workflows import *
 import datetime
 import logging 
 
-logging.basicConfig(filename='./src/app.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='./src/logs/model2.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s')
 logging.warning('starting training')
 
 
@@ -19,16 +19,11 @@ logging.warning('starting training')
 #X = df[logit_cols]  # 801 x columns 
 #Y = y_col           # 1 output column 
 
-fps='./src/data/indicators_BTC-USD2022-01-01_2022-02-03.csv'
-df=pd.read_csv(fps)
-Y=df['green']
 
-
-
-print(Y.value_counts())
-df=df.drop(columns=['green'])
-X=df
-
+qdf_fps='./src/data/quantiles_df_15_60_3_months.csv'
+edf_fps='./src/data/edf_df_15_60_3_months.csv'
+X=pd.read_csv(qdf_fps, index_col=0)
+Y=pd.read_csv(edf_fps,index_col=0)['green']
 
 
 # Custom Dataset Class
@@ -43,48 +38,45 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
 
-if 0: # 0 -> use simple model, 1 use complex model
-    class Network(nn.Module):
-        def __init__(self):
-            super(Network, self).__init__()
-            self.layer1 = nn.Linear(800, 1)  # Assuming df has 801 features
-            self.sigmoid = nn.Sigmoid()
 
-        def forward(self, x):
-            x = nn.functional.relu(self.layer1(x))
-            x = self.sigmoid(x)  # directly use sigmoid on the result of the previous layer
-            return x
-else:
-    class Network(nn.Module):
-        def __init__(self):
-            super(Network, self).__init__()
-            self.layer1 = nn.Linear(800, 400)  # Assuming df has 801 features
-            self.layer2 = nn.Linear(400, 200)  # Assuming df has 801 features
-            self.layer3 = nn.Linear(200, 100)  # Assuming df has 801 features
-            self.layer4 = nn.Linear(100, 50)  # Assuming df has 801 features
-            self.layer5 = nn.Linear(50, 50)  # Assuming df has 801 features
-            self.layer6 = nn.Linear(50, 50)  # Assuming df has 801 features
-            self.layer7 = nn.Linear(50, 25)  # Assuming df has 801 features
-            self.layer8 = nn.Linear(25, 5)
-            self.output = nn.Linear(5, 1)
-            self.sigmoid = nn.Sigmoid()
+class simpleNetwork(nn.Module):
+    def __init__(self,n_features):
+        super(Network, self).__init__()
+        self.layer1 = nn.Linear(n_features, 1)  # Assuming df has 801 features
+        self.sigmoid = nn.Sigmoid()
+    def forward(self, x):
+        x = nn.functional.relu(self.layer1(x))
+        x = self.sigmoid(x)  # directly use sigmoid on the result of the previous layer
+        return x
 
-        def forward(self, x):
-            x = nn.functional.relu(self.layer1(x))
-            x = nn.functional.relu(self.layer2(x))
-            x = nn.functional.relu(self.layer3(x))
-            x = nn.functional.relu(self.layer4(x))
-            x = nn.functional.relu(self.layer5(x))
-            x = nn.functional.relu(self.layer6(x))
-            x = nn.functional.relu(self.layer7(x))
-            x = nn.functional.relu(self.layer8(x))
-            x = self.sigmoid(self.output(x))
-            return x
+class Network(nn.Module):
+    def __init__(self, input_features, output_features, scale_factor):
+        super(Network, self).__init__()
+
+        layers = []
+        in_features = input_features
+        while in_features > output_features*scale_factor:
+            out_features = max(int(in_features/scale_factor), output_features*scale_factor)
+            layers.append(nn.Linear(in_features, out_features))
+            layers.append(nn.ReLU())
+            in_features = out_features
+
+        layers.append(nn.Linear(in_features, output_features))
+        self.layers = nn.Sequential(*layers)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layers(x)
+        x = self.sigmoid(x)
+        return x
 
 
 # Create a dataset from your dataframe
 dataset = CustomDataset(X,Y)
-model = Network()
+
+in_features=X.shape[1]
+scaling_factor=4
+model = Network(in_features,1,scaling_factor)
 
 from torch import optim
 
@@ -93,7 +85,7 @@ criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0005)                                # lr 
 
 # Define number of epochs
-epochs = 10000 # 10-20 is a good start                                               # epochs 
+epochs = 100 # 10-20 is a good start                                               # epochs 
 
 # Split into training and validation sets
 train_size = int(0.8 * len(dataset))  # 80% for training
@@ -125,7 +117,7 @@ ts=datetime.datetime.now().strftime("%Y%m%d%H%M")
 path=f'./src/models/coinbase_model_{ts}.pth'
 torch.save(model.state_dict(), path)
 
-model = Network()
+model = Network(in_features,1,scaling_factor)
 
 # Load
 model.load_state_dict(torch.load(path))
@@ -181,9 +173,10 @@ false negatives: {predictions.count(0)} / {true_labels.count(0)} = {round(predic
 Epochs: {epochs}
 model: {path}
 value counts : {Y.value_counts()}
-file : {fps}
+X shape: {X.shape}
+file : {qdf_fps}
 """
-
+print(s)
 
 
 logging.warning(f'------------{ts}--------------')

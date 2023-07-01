@@ -24,13 +24,18 @@ class myMath:
             ,'cumdiff': lambda df,col1,col2,window: df['index'].rolling(window=window).apply(lambda x: self.cumdiff(df,x,col1,col2)) # basically any  function on rolling window
             
 
-   
+            ,'floor_datetime': lambda df, dt_col, scale: df[dt_col].apply(lambda x: x - 
+                    datetime.timedelta(
+                    minutes= x.minute % scale,
+                    seconds= x.second,
+                    microseconds= x.microsecond) # floor function for datetime columns 
+                    )   
             ,'floor_dt': lambda df,str_col, scale: df[str_col].apply(lambda x: datetime.datetime.strptime(x,self.tformat) -
                     datetime.timedelta(
                     minutes=( datetime.datetime.strptime(x,self.tformat).minute) % scale,
                     seconds= datetime.datetime.strptime(x,self.tformat).second,
                     microseconds= datetime.datetime.strptime(x,self.tformat).microsecond)
-                                                                     )
+                                                                     ) # floor function for datetime strings
             , 'ts': lambda df,str_col:  df[str_col].apply(lambda x: datetime.datetime.strptime(x,self.tformat ) )  # converts str col to timestamp 
             ,'hod': lambda df,str_col:  df[str_col].apply(lambda x: datetime.datetime.strptime(x,self.tformat).hour ) # hour of a day 
             ,'moh': lambda df,str_col:  df[str_col].apply(lambda x: datetime.datetime.strptime(x,self.tformat).minute )  # hour of a day 

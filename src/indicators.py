@@ -7,6 +7,9 @@ import ta.volatility as tavl
 import ta.trend as tat 
 import ta.others as tao
 
+import matplotlib.pyplot as plt
+
+
 from utils import Utils
 import numpy as np  
 import pandas as pd 
@@ -37,13 +40,15 @@ class indicators:
         self.raw_data_columns=['epoch','timestamp','low','high']
 
         self.windows_d={
-            'windows_1': [25, 25, 10, 2, 30, 5, 34, 20, 14, 14, 20, 2, 20, 2, 25, 26, 12, 20, 5, 25],
-            'windows_2': [50, 50, 20, 4, 60, 10, 68, 40, 28, 28, 40, 4, 40, 4, 50, 52, 24, 40, 10, 50]
+            'windows_1': [10,10,25, 25, 10, 2, 30, 5, 34, 20, 14, 14, 20, 2, 20, 2, 25, 26, 12, 20, 5, 25],
+            'windows_2': [20,20,50, 50, 20, 4, 60, 10, 68, 40, 28, 28, 40, 4, 40, 4, 50, 52, 24, 40, 10, 50]
         }
         
         self.which_windows='windows_1'
         windows=self.windows_d[self.which_windows]
         self.funs_d={
+            'cum_dist': (self.fun_cumdist, {"window": windows[0],"src_col":"close"  }),
+            'how_green': (self.fun_how_green, {"window": windows[0]}),
             'ema_distance': (self.fun_ema_distance, {"src_col": 'close', "window": windows[0]}),
             'rsi':  (self.fun_rsi, {"window": windows[1]}),
             'kama':  (self.fun_kama, {"window": windows[2], "pow1": windows[3], "pow2": windows[4]}),
@@ -75,6 +80,8 @@ class indicators:
     def refresh_funs_d(self):
         windows=self.windows_d[self.which_windows]
         self.funs_d={
+            'cum_dist': (self.fun_cumdist, {"window": windows[0],"src_col":"close"  }),
+            'how_green': (self.fun_how_green, {"window": windows[0]}),
             'ema_distance': (self.fun_ema_distance, {"src_col": 'close', "window": windows[0]}),
             'rsi':  (self.fun_rsi, {"window": windows[1]}),
             'kama':  (self.fun_kama, {"window": windows[2], "pow1": windows[3], "pow2": windows[4]}),
@@ -119,15 +126,19 @@ class indicators:
             return ax
         plt.show()
         
-    def make_nlq(self,N=50, plot_res=False ):  # returns list of values betweeb 0-1 inclusive with non linear distribution 
-        x=[i/N for i in range(N+1)] # linear percentiles 
+    def make_nlq(self,N=100, plot_res=False ):  # returns list of values betweeb 0-1 inclusive with non linear distribution 
+        x=[i/N for i in range(N+1)] # linear percentiles
+        steepness=15
+        accuracy=5
         f = lambda x: np.exp(3*x)   # your distribution function 
         f = lambda x: np.sin(2*x)
-        f= lambda x: np.round(1/(1 + np.exp(-(x-0.5 )*10 )),3) # sigmoid function is the best function out there anon 
+        f= lambda x: np.round(1/(1 + np.exp(-(x-0.5 )*steepness )),accuracy) # sigmoid function is the best function out there anon 
 
         yy=[f(i) for i in x]
         yy=(yy-min(yy))/(max(yy)-min(yy))
-
+        if len(yy)!=len(list(set(yy))):
+            print('incorrect nlq inputs - quantiles overlap due to accuracy')
+            raise 
 
         if plot_res:
             import matplotlib.pyplot as plt 
@@ -269,10 +280,20 @@ class indicators:
         return f(df=self.df,col=src_col,window=window)
     #  ema 
     def fun_ema_distance(self,src_col='close', window : int = 25):
-        colname=f'f-ema-{src_col}-{window}'
-        f = lambda df,col,window : (df[col]-df[col].ewm(span=window).mean())/df[col].rolling(window=window).std()
+        colname=f'f-emadist-{src_col}-{window}'
+        f = lambda df,col,window : (df[col]-df[col].ewm(span=window).mean())/df[col].rolling(window=window).std() # not sure why i did it this way 
         self.df[colname]=f(df=self.df,col=src_col,window=window)
+        
+    def fun_how_green(self, window : int = 10):
+        colname=f'f-hg-{window}'
+        f=lambda df,window :  (df['close']>df['open']).rolling(window=window).mean()
+        self.df[colname]=f(df=self.df,window=window)
     
+    def fun_cumdist(self,src_col='close', window : int = 10):
+        colname=f'f-cumdist-{src_col}-{window}'
+        f = lambda df, col, window: ((df[col] - df[col].ewm(span=window).mean()) ).rolling(window=window).sum()
+        self.df[colname]=f(df=self.df,window=window,col=src_col)
+        
 # momentum indicators 
     #  rsi 
     def fun_rsi(self, window: int = 25 , inplace = True ):
@@ -404,62 +425,134 @@ class indicators:
     ###        return 
     ###    return f(df=self.df,window=window,h=h,col=col)
 
+
+
+def plot_candlestick2(candles_df : pd.DataFrame
+                      ,x1y1 : list =[]
+                      , x2y2 : list = []
+                      ,longs_ser : pd.Series = pd.Series({},dtype=np.float64)
+                      ,shorts_ser : pd.Series = pd.Series({},dtype=np.float64)
+                      ):
+    df=candles_df
+    plt.rcParams['axes.facecolor'] = 'y'
+    low=df['low']
+    high=df['high']
+    open=df['open']
+    close=df['close']
+    # mask for candles 
+    green_mask=df['close']>=df['open']
+    red_mask=df['open']>df['close']
+    up=df[green_mask]
+    down=df[red_mask]
+    # colors
+    col1='green'
+    black='black'
+    col2='red'
+
+    width = .4
+    width2 = .05
+
+    fig,ax=plt.subplots(2,1)
+    ax[0].bar(up.index,up['high']-up['close'],width2,bottom=up['close'],color=col1,edgecolor=black)
+    ax[0].bar(up.index,up['low']-up['open'],width2, bottom=up['open'],color=col1,edgecolor=black)
+    ax[0].bar(up.index,up['close']-up['open'],width, bottom=up['open'],color=col1,edgecolor=black)
+    ax[0].bar(down.index,down['high']- down['close'],width2,bottom=down['close'],color=col2,edgecolor=black)
+    ax[0].bar(down.index,down['low']-  down['open'],width2,bottom=down['open'],color=col2,edgecolor=black)
+    ax[0].bar(down.index,down['close']-down['open'],width,bottom=down['open'],color=col2,edgecolor=black)
+
+    for xy in x1y1:
+        ax[0].plot(xy[0],xy[1])
+        
+        
+    for xy in x2y2:
+        ax[1].plot(xy[0],xy[1])
+
+    if not longs_ser.empty:
+        msk=longs_ser==True
+        ax[0].plot(longs_ser[msk].index, df[msk]['low']*longs_ser[msk].astype(int),'^g')
+
+    if not shorts_ser.empty:
+        msk=shorts_ser==True
+        ax[0].plot(shorts_ser[msk].index, df[msk]['high']*shorts_ser[msk].astype(int),'vr')
+
+
+# plts candlestick fren 
+def plot_candlestick(df
+                     , shorts_ser:pd.Series = pd.Series(dtype=float)  # my shorts 
+                     , longs_ser:pd.Series = pd.Series(dtype=float)   # my longs 
+                     , real_longs:pd.Series = pd.Series(dtype=float)  # model longs 
+                     , real_shorts:pd.Series = pd.Series(dtype=float) # model shorts 
+                     , additional_line = None # top chart additional line 
+                     ):
+    plt.rcParams['axes.facecolor'] = 'y'
+    low=df['low']
+    high=df['high']
+    open=df['open']
+    close=df['close']
+    # mask for candles 
+    green_mask=df['close']>=df['open']
+    red_mask=df['open']>df['close']
+    up=df[green_mask]
+    down=df[red_mask]
+    # colors
+    col1='green'
+    black='black'
+    col2='red'
+
+    width = .4
+    width2 = .05
+
+    fig,ax=plt.subplots(2,1)
+    ax[0].bar(up.index,up['high']-up['close'],width2,bottom=up['close'],color=col1,edgecolor=black)
+    ax[0].bar(up.index,up['low']-up['open'],width2, bottom=up['open'],color=col1,edgecolor=black)
+    ax[0].bar(up.index,up['close']-up['open'],width, bottom=up['open'],color=col1,edgecolor=black)
+    ax[0].bar(down.index,down['high']- down['close'],width2,bottom=down['close'],color=col2,edgecolor=black)
+    ax[0].bar(down.index,down['low']-  down['open'],width2,bottom=down['open'],color=col2,edgecolor=black)
+    ax[0].bar(down.index,down['close']-down['open'],width,bottom=down['open'],color=col2,edgecolor=black)
+        
+    if 'LONGS_SIGNAL' in df.columns:
+        msk=df['LONGS_SIGNAL']==1
+        ax[0].plot(df[msk].index, df[msk]['low']*df[msk]['LONGS_SIGNAL'],'^g')
+    if 'SHORTS_SIGNAL' in df.columns:
+        msk=df['SHORTS_SIGNAL']==1
+        ax[0].plot(df[msk].index, df[msk]['high']*df[msk]['SHORTS_SIGNAL'],'vr')
+        
+        
+        
+    if not shorts_ser.empty:
+        mask=shorts_ser>0
+        ax[0].plot(shorts_ser.index[mask],shorts_ser[mask],'vr')
+
+    if not longs_ser.empty:
+        mask=longs_ser>0
+        ax[0].plot(longs_ser.index[mask],longs_ser[mask],'^g')
+        
+    if not real_longs.empty:
+        ax[0].plot(real_longs.index,real_longs,'og')
+
+    if not real_shorts.empty:
+        ax[0].plot(real_shorts.index,real_shorts,'or')
+        
+    if additional_line is not None:
+        for tup in additional_line:
+
+            which_chart=tup[0]
+            series=tup[1]
+            ax[which_chart].plot(series.index,series,'-b')
+        
+    plt.show()
+    return ax 
+
+
 if __name__=='__main__':
     u=Utils()
-    df=u.read_csv()
-    df['index']=df.index
-    i=indicators(df=df)   
-    for fun in i.funs_d.values():
-        fun()
-
-    print(i.df.columns)
-
-if __name__=='__main__old':
-    u=Utils()
-    df=u.read_csv()
-    df['index']=df.index
-    i=indicators(df=df)
-   
-    df['fun']=i.fun_relative_volatility(inplace=False)
-
-    x=df['index']
-    close=df['close']
-    fig, ax = plt.subplots(1, 1)
-    i.plot_stuff(df=df,extra_col='fun')
-
+    df=u.read_csv('./src/data/data.csv')
+    df=df
+    i=indicators(df)
     
-    
-    for fun in i.funs_d.values():
-        fun(window=10)
-        
-    
-    print(i.df.columns)
-    print(i.q_cols())
-    
-    input('wait')
-
-    # calculate quantile columns  
-    for col in i.q_cols():
-        i.bucketizeme(df=i.df,col=col)
-        
-        
-    i.df.dropna(how='any',inplace=True)
-
-
-    dump_df=i.df[i.b_cols()+['close','open']].copy(deep=True)    
-    u.dump_df(df=dump_df,fname='indicators.csv')
-    
-    t=torch.tensor(dump_df[i.b_cols()].values)
-    plt.imshow(t, cmap='gray')
-    plt.show()
+    for fun, params in i.funs_d.values():
+        fun(**params)
+        break 
+    print(df.head(25))
     exit(1)
-    
-    i.make_random_entries()
-    i.calculate_exits()
-    
-#    x=i.calculate_max_profit()
-    
-    print(i.calculate_profit())
-    print(i.calculate_max_profit())
-
-    
+    plot_candlestick(df,additional_line=[(1,i.df['f-ema-close-10'])] )
