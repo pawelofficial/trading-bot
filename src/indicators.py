@@ -36,6 +36,9 @@ import matplotlib.pyplot as plt
 class indicators:
     def __init__(self,df) -> None:
         self.df=df
+        self.nlq_steepness=15
+        self.nlq_accuracy=5
+        self.nlq_number=50
         self.nlq=self.make_nlq() # non lineear quantiles 
         self.raw_data_columns=['epoch','timestamp','low','high']
 
@@ -126,13 +129,12 @@ class indicators:
             return ax
         plt.show()
         
-    def make_nlq(self,N=100, plot_res=False ):  # returns list of values betweeb 0-1 inclusive with non linear distribution 
-        x=[i/N for i in range(N+1)] # linear percentiles
-        steepness=15
-        accuracy=5
+    def make_nlq(self, plot_res=False ):  # returns list of values betweeb 0-1 inclusive with non linear distribution 
+        x=[i/self.nlq_number for i in range(self.nlq_number+1)] # linear percentiles
+
         f = lambda x: np.exp(3*x)   # your distribution function 
         f = lambda x: np.sin(2*x)
-        f= lambda x: np.round(1/(1 + np.exp(-(x-0.5 )*steepness )),accuracy) # sigmoid function is the best function out there anon 
+        f= lambda x: np.round(1/(1 + np.exp(-(x-0.5 )*self.nlq_steepness )),self.nlq_accuracy) # sigmoid function is the best function out there anon 
 
         yy=[f(i) for i in x]
         yy=(yy-min(yy))/(max(yy)-min(yy))
@@ -404,76 +406,67 @@ class indicators:
         f= lambda df,col,window1,window2 : df[col].rolling(window=window1).std()/df[col].rolling(window=window2).std()
         self.df[colname]=f(df=self.df,col=src_col,window1=window1,window2=window2)
 
+    # returns series with entry signal - big green 
+    def signal_big_green(self,df):
+        df=df.copy()
+        next_close=df['close'].shift(-1)
+        next_open=df['open'].shift(-1)
+        candle_size = (df['close']-df['open']).abs()
+        mean_candle_size = candle_size.mean()
+        std_candle_size = candle_size.std()
+        green_mask=next_close>next_open
+        n=1
+        big_mask=(next_close-next_open)>mean_candle_size+n*std_candle_size
+        mask=green_mask&big_mask
+        return mask.astype(int)
 
-    #### tbd 
-    ###def nadaraya_watson(self,x, y, h, window,std_w=0.25):
-    ###    y_hat = []
-    ###    for i in range(len(x)):
-    ###        # Calculate the weights for the data points within the window
-    ###        k = np.exp(-0.5 * ((x - x[i]) / h) ** 2)
-    ###        w_k = np.where(window, k, 0)
-    ###        # Calculate the estimator
-    ###        y_hat.append(np.sum(w_k * y) / np.sum(w_k))
-    ###        
-    ###    return y_hat-y.std()*std_w#,y_hat+y.std()*std_w
-    #### tbd
-    ###def fun_nadaraya_watson(self,window: int = 25, h=1,col='close',inplace=True):
-    ###    colname = f'f-nadaraya'
-    ###    f = lambda df,window,h,col: self.nadaraya_watson(df['index'].values, df['close'].values, h,window)
-    ###    if inplace:
-    ###        df[colname]=f(df=self.df,window=window,h=h,col=col)
-    ###        return 
-    ###    return f(df=self.df,window=window,h=h,col=col)
-
-
-
-def plot_candlestick2(candles_df : pd.DataFrame
-                      ,x1y1 : list =[]
-                      , x2y2 : list = []
-                      ,longs_ser : pd.Series = pd.Series({},dtype=np.float64)
-                      ,shorts_ser : pd.Series = pd.Series({},dtype=np.float64)
-                      ):
-    df=candles_df
-    plt.rcParams['axes.facecolor'] = 'y'
-    low=df['low']
-    high=df['high']
-    open=df['open']
-    close=df['close']
-    # mask for candles 
-    green_mask=df['close']>=df['open']
-    red_mask=df['open']>df['close']
-    up=df[green_mask]
-    down=df[red_mask]
-    # colors
-    col1='green'
-    black='black'
-    col2='red'
-
-    width = .4
-    width2 = .05
-
-    fig,ax=plt.subplots(2,1)
-    ax[0].bar(up.index,up['high']-up['close'],width2,bottom=up['close'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['low']-up['open'],width2, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['close']-up['open'],width, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(down.index,down['high']- down['close'],width2,bottom=down['close'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['low']-  down['open'],width2,bottom=down['open'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['close']-down['open'],width,bottom=down['open'],color=col2,edgecolor=black)
-
-    for xy in x1y1:
-        ax[0].plot(xy[0],xy[1])
+    def signal_wave(self,df,N=10):
+        threshold=0.8
+        df=df.copy()
         
+        df['dif']=(df['close']-df['open']).abs()
+        df['flat']=df['dif']<df['dif'].mean()*0.2
         
-    for xy in x2y2:
-        ax[1].plot(xy[0],xy[1])
+        df['green']=((df['close']-df['open']>0) | (df['flat']==1) ).astype(int)
+        ema10=df['close'].ewm(span=10).mean()
+        ema15=df['close'].ewm(span=15).mean()
+        df['ema10']=ema10
+        df['ema15']=ema15
+        df['ema_signal']=(ema10>ema15).astype(int)
+        df['wave_signal']=0
+        
+        for no,row in df.iterrows(): 
+            next_rows=df.iloc[no+1:no+N]['ema_signal'].tolist()
+            if next_rows.count(1)>=int(threshold*N):
+                df.loc[no,'wave_signal']=1
+                
+        # add additional green candles prior to wave 
+        for no, row in df.iterrows():
+            if row['wave_signal']==1:                                       # if this candle is a wave
+                j=no
+                while df.loc[j-1,'green']==1 and j>0 :                      # if previous candle is green make it green
+                    df.loc[j-1,'wave_signal']=1                                 
+                    j=j-1
+                    
+        # add additional green calndles after a wave
+        for no, row in df.iterrows():
+            if row['wave_signal']==1:                                       # if this candle is a wave
+                j=no
+                while df.loc[j+1,'green']==1 and j<df.index.max() :         # if next candle is green make it green
+                    df.loc[j+1,'wave_signal']=1
+                    j=j+1
+            
+        # remove last candles if they are red or flat 
+        for no, row in df.iterrows():
+            if no < df.index.max() and df.loc[no+1,'wave_signal']==0  :             # if next candle is not a wave
+                j = no
+                while j > 0 and (df.loc[j,'green']==0 or df.loc[j,'flat']==1) :     # if current candle is red or flat make it red 
+                    df.loc[j,'wave_signal'] = 0
+                    j = j-1
 
-    if not longs_ser.empty:
-        msk=longs_ser==True
-        ax[0].plot(longs_ser[msk].index, df[msk]['low']*longs_ser[msk].astype(int),'^g')
+            
+        return df 
 
-    if not shorts_ser.empty:
-        msk=shorts_ser==True
-        ax[0].plot(shorts_ser[msk].index, df[msk]['high']*shorts_ser[msk].astype(int),'vr')
 
 
 # plts candlestick fren 
@@ -482,7 +475,7 @@ def plot_candlestick(df
                      , longs_ser:pd.Series = pd.Series(dtype=float)   # my longs 
                      , real_longs:pd.Series = pd.Series(dtype=float)  # model longs 
                      , real_shorts:pd.Series = pd.Series(dtype=float) # model shorts 
-                     , additional_line = None # top chart additional line 
+                     , additional_lines = None # top chart additional line 
                      ):
     plt.rcParams['axes.facecolor'] = 'y'
     low=df['low']
@@ -533,26 +526,32 @@ def plot_candlestick(df
     if not real_shorts.empty:
         ax[0].plot(real_shorts.index,real_shorts,'or')
         
-    if additional_line is not None:
-        for tup in additional_line:
+    if additional_lines is not None:
+        for tup in additional_lines:
 
             which_chart=tup[0]
             series=tup[1]
-            ax[which_chart].plot(series.index,series,'-b')
+            ax[which_chart].plot(series.index,series,'-',label=series.name)
         
+    ax[0].legend()
     plt.show()
     return ax 
 
 
 if __name__=='__main__':
     u=Utils()
-    df=u.read_csv('./src/data/data.csv')
-    df=df
+    df=u.read_csv('./src/data/raw/data.csv')
+    df=df.iloc[:100]
     i=indicators(df)
+    df=i.signal_wave(df=df)
+    msk=df['wave_signal']==1
+    longs_ser=df['low'][msk]
+
     
-    for fun, params in i.funs_d.values():
-        fun(**params)
-        break 
-    print(df.head(25))
-    exit(1)
-    plot_candlestick(df,additional_line=[(1,i.df['f-ema-close-10'])] )
+    additional_lines=[(0,df['ema10']),(0,df['ema15']) ]
+    plot_candlestick(df,longs_ser=longs_ser,  additional_lines=additional_lines)
+
+#    exit(1)
+#    signal=i.signal_big_green(df)
+#    msk=signal>0
+#    longs_ser=df['close'][msk]
