@@ -148,7 +148,7 @@ class indicators:
             print(yy)
             plt.plot(x,yy,'-o')
             plt.show()
-            exit(1)
+            #exit(1)
         return yy # gotta figure out sth cool 
 
     #calculates profit based on trade pairs 
@@ -444,7 +444,7 @@ class indicators:
         for no, row in df.iterrows():
             if row['wave_signal']==1:                                       # if this candle is a wave
                 j=no
-                while df.loc[j-1,'green']==1 and j>0 :                      # if previous candle is green make it green
+                while j > 0 and df.loc[j-1,'green']==1 and j>0 :                      # if previous candle is green make it green
                     df.loc[j-1,'wave_signal']=1                                 
                     j=j-1
                     
@@ -465,7 +465,7 @@ class indicators:
                     j = j-1
 
             
-        return df 
+        return df['wave_signal'],df
 
 
 
@@ -540,7 +540,10 @@ def plot_candlestick(df
 
 if __name__=='__main__':
     u=Utils()
-    df=u.read_csv('./src/data/raw/data.csv')
+    fps='./src/data/raw/data.csv'
+    fps='./src/data/raw/BTC-USD2023-01-01_2023-02-01.csv'
+    df=pd.read_csv(fps)
+    
     df=df.iloc[:100]
     i=indicators(df)
     df=i.signal_wave(df=df)

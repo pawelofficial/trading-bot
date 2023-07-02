@@ -6,7 +6,10 @@ from indicators import *
 from utils import *
 from myfuns import pca_plot
 import logging 
-logging.basicConfig(filename='./src/logs/workflows.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s')
+if __name__=='__main__':
+
+    logging.basicConfig(filename='./src/logs/workflows.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s')
+
 
 # downloads data from coinbase 
 def wf__download_by_dates(start_date='01-01-2022',end_date='03-01-2022',config_fps='./src/secrets/secrets.json',out_fps='./src/data/'):
@@ -19,6 +22,7 @@ def wf__download_by_dates(start_date='01-01-2022',end_date='03-01-2022',config_f
     return fps
 
    # aggregates df to different timeframe, ads fk column and dumps 
+
 def wf__aggregate_df(df_fps ='./data/data.csv'
                      ,scale=15
                      ,out_fps='./src/data/math_df.csv'
@@ -31,7 +35,7 @@ def wf__aggregate_df(df_fps ='./data/data.csv'
         logging.warning(f'reading df  {df_fps}')
         mth.read_csv(filepath=df_fps)
     else:
-        print('using provided df')
+        logging.warning('using provided df')
         mth.math_df=df
     logging.warning(f'original df len {len(mth.math_df)}')
     math_df=mth.aggregate(df=mth.math_df, scale =scale, src_col='timestamp')
@@ -45,11 +49,11 @@ def wf__aggregate_df(df_fps ='./data/data.csv'
         mth.dump_csv(df=math_df,filename=out_fps)
     return math_df 
 
-
 def wf__make_quantiles_df(input_df,nlq_number=None,nlq_steepness=None,nlq_accuracy=None):
     logging.warning('starting make_quantiles_df')
     logging.warning(f'original df columns count {len(input_df.columns)}')
     u=Utils()
+    input_df=input_df.copy()
     input_df['index']=input_df.index
     i=indicators(df=input_df)
     if nlq_number is not None:  
@@ -58,6 +62,7 @@ def wf__make_quantiles_df(input_df,nlq_number=None,nlq_steepness=None,nlq_accura
         i.nlq_steepness=nlq_steepness
     if nlq_accuracy is not None:
         i.nlq_accuracy=nlq_accuracy
+    i.nlq=i.make_nlq()
     logging.warning(f'nlq values {i.nlq_number} {i.nlq_steepness} {i.nlq_accuracy}')
     
     for fun, params in i.funs_d.values():  # calculate indicators  
@@ -72,8 +77,10 @@ def wf__make_quantiles_df(input_df,nlq_number=None,nlq_steepness=None,nlq_accura
     
     return i.df[quantile_columns],i.df[base_columns] # return quantile df and base df
         
-    
-
+def wf__make_signals(input_df):
+    i=indicators(df=input_df)
+    ser=i.signal_wave(df=input_df)
+    return ser 
     
     
 def wf__make_indicators(df_fps='./src/data/data.csv',out_fps='./src/data/quantiles_df.csv',input_df=None,dump=False):
@@ -149,9 +156,16 @@ def wf__evaluate_model(data_fps='./src/data_backups/BTC-USD2022-01-01_2023-01-01
     #pca_plot(df=qdf,labels=edf_fast['green'],n_components=2)
     
 if __name__=='__main__':
+
+    wf__download_by_dates(start_date='01-01-2022',end_date='01-03-2022',out_fps='./src/data/raw/')
+    exit(1)
     df=pd.read_csv('./src/data/raw/data.csv').iloc[:500]
-    wf__make_quantiles_df(input_df=df)
-    
+    print(len(df))
+    df=wf__aggregate_df(df=df,scale=15)
+    print(len(df))
+    qdf,bdf=wf__make_quantiles_df(input_df=df)
+    y=wf__make_signals(input_df=df)
+    print(len(qdf),len(bdf),len(y))
     #wf__download_by_dates(start_date='01-01-2023',end_date='01-02-2023',out_fps='./src/data/raw/')
     #wf__evaluate_model(data_fps='./src/data/raw/BTC-USD2023-01-01_2023-03-01.csv')
     exit(1)
