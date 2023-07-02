@@ -19,12 +19,14 @@ logging.warning('starting training')
 #X = df[logit_cols]  # 801 x columns 
 #Y = y_col           # 1 output column 
 
-
-qdf_fps='./src/data/quantiles_df_15_60_3_months.csv'
-edf_fps='./src/data/edf_df_15_60_3_months.csv'
+s='3months_s10_a3_N50'
+s='3months_s15_a5_N100' # lets test the nlq thing
+qdf_fps=f'./src/data/qdf_{s}.csv'
+edf_fps=f'./src/data/edf_{s}.csv'
 X=pd.read_csv(qdf_fps, index_col=0)
 Y=pd.read_csv(edf_fps,index_col=0)['green']
 
+print(X.shape)
 
 # Custom Dataset Class
 class CustomDataset(Dataset):
@@ -70,22 +72,25 @@ class Network(nn.Module):
         x = self.sigmoid(x)
         return x
 
-
+ 
 # Create a dataset from your dataframe
 dataset = CustomDataset(X,Y)
 
 in_features=X.shape[1]
 scaling_factor=4
 model = Network(in_features,1,scaling_factor)
-
+if 0: # load model if you have it and has the same params 
+    m='coinbase_model_202307011741'
+    path=f'./src/models/{m}.pth'
+    model.load_state_dict(torch.load(path))
 from torch import optim
 
 # Define loss function and optimizerkcaE&(U-)
 criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0005)                                # lr 
+optimizer = optim.Adam(model.parameters(), lr=0.0001)                                # lr 
 
 # Define number of epochs
-epochs = 100 # 10-20 is a good start                                               # epochs 
+epochs = 1000 # 10-20 is a good start                                               # epochs 
 
 # Split into training and validation sets
 train_size = int(0.8 * len(dataset))  # 80% for training
@@ -95,24 +100,34 @@ train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 # Create DataLoaders
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32)
+ts_now=time.time()
+try:
+    for epoch in range(epochs):
+        running_loss = 0.0
+        for inputs, labels in train_loader:
+            # Zero the parameter gradients
+            optimizer.zero_grad()
 
-for epoch in range(epochs):
-    running_loss = 0.0
-    for inputs, labels in train_loader:
-        # Zero the parameter gradients
-        optimizer.zero_grad()
+            # Forward pass, backward pass, and optimize
+            outputs = model(inputs)
+            loss = criterion(outputs, labels.unsqueeze(1))
+            loss.backward()
+            optimizer.step()
 
-        # Forward pass, backward pass, and optimize
-        outputs = model(inputs)
-        loss = criterion(outputs, labels.unsqueeze(1))
-        loss.backward()
-        optimizer.step()
+            # Print statistics
+            running_loss += loss.item()
 
-        # Print statistics
-        running_loss += loss.item()
+        if epoch % 100 ==0:
+            print('saving model !')
+            path=f'./src/models/coinbase_model_loop.pth'
+            torch.save(model.state_dict(), path)
+            elapsed_time = time.time() - ts_now
+            print(f'elapsed time {elapsed_time}')
 
-    print(f"Epoch {epoch+1} - Training loss: {running_loss/len(train_loader)}")
-    
+        print(f"Epoch {epoch+1} - Training loss: {running_loss/len(train_loader)}")
+except KeyboardInterrupt:
+    pass 
+
 ts=datetime.datetime.now().strftime("%Y%m%d%H%M")
 path=f'./src/models/coinbase_model_{ts}.pth'
 torch.save(model.state_dict(), path)

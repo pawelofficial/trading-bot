@@ -71,22 +71,16 @@ def wf__make_indicators(df_fps='./src/data/data.csv',out_fps='./src/data/quantil
     return i.df,edf,logit_cols,extra_cols
 
 
-def wf__evaluate_model(mdl_fps='./models/models_backups/coinbase_model_202306291136.pth'
-                       ,data_fps='./src/data_backups/BTC-USD2022-01-01_2023-01-01.csv'
+def wf__evaluate_model(data_fps='./src/data_backups/BTC-USD2022-01-01_2023-01-01.csv'
                        ,scales=[15,60]):
     ts_fast=f'ts-{scales[0]}'
     ts_slow=f'ts-{scales[1]}'
     mth=myMath()
     data_df=pd.read_csv(data_fps)
-
-
+    
     fast_df=mth.aggregate(df=data_df, scale =scales[0], src_col='timestamp')
     slow_df=mth.aggregate(df=data_df, scale =scales[1], src_col='timestamp')
-    
-    fast_df[ts_slow]=mth.calculate_fun(df=fast_df,fun_name='floor_datetime',str_col=ts_fast,scale=scales[1],inplace=False)
-
-    
-    
+    fast_df[ts_slow]=mth.calculate_fun(df=fast_df,fun_name='floor_datetime',str_col=ts_fast,scale=scales[1],inplace=False)    
     qdf_fast,edf_fast,logit_cols_fast,extra_cols_fast=wf__make_indicators(input_df=fast_df)
     qdf_fast.rename(columns={col: 'fast_' + col for col in qdf_fast.columns}, inplace=True)
     edf_fast.rename(columns={col: 'fast_' + col for col in qdf_fast.columns}, inplace=True)
@@ -108,15 +102,17 @@ def wf__evaluate_model(mdl_fps='./models/models_backups/coinbase_model_202306291
     print(len(qdf_fast))
     print(len(qdf_slow))
     qdf.drop(columns=['fk','pk'],inplace=True)
-    qdf.to_csv('./src/data/quantiles_df_15_60_3_months.csv',index=True)
-    edf_fast.to_csv('./src/data/edf_df_15_60_3_months.csv',index=True)
+    qdf_fast.drop(columns=['fk'],inplace=True)
+    s='3months_s15_a5_N100'
+    qdf.to_csv(f'./src/data/qdf_{s}.csv',index=True)
+    edf_fast.to_csv(f'./src/data/edf_{s}.csv',index=True)
     #qdf=pd.read_csv('./src/data_backups/indicators_BTC-USD2022-01-01_2022-02-03.csv')
     ##qdf['labels']=edf_fast['green']
     #pca_plot(df=qdf,labels=edf_fast['green'],n_components=2)
     
 if __name__=='__main__':
-    #wf__download_by_dates(start_date='01-01-2022',end_date='01-01-2023',out_fps='./src/data/')
-    wf__evaluate_model()
+    #wf__download_by_dates(start_date='01-01-2023',end_date='01-02-2023',out_fps='./src/data/raw/')
+    wf__evaluate_model(data_fps='./src/data/raw/BTC-USD2023-01-01_2023-03-01.csv')
     exit(1)
     dataset='BTC-USD2022-01-01_2022-01-03' # 2 days 
     #dataset='BTC-USD2022-01-01_2022-02-03' # 3 months
