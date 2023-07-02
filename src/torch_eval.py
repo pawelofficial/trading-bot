@@ -30,8 +30,8 @@ class Network(nn.Module):
         x = self.sigmoid(x)
         return x
 
-edf=pd.read_csv('./src/data/edf_df_15_60_1_year.csv')
-qdf=pd.read_csv('./src/data/quantiles_df_15_60_1_year.csv',index_col=0)
+edf=pd.read_csv('./src/data/edf_3months_s10_a3_N50.csv')
+qdf=pd.read_csv('./src/data/qdf_3months_s10_a3_N50.csv',index_col=0)
 
 
 in_features = qdf.shape[1]

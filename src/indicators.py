@@ -464,7 +464,29 @@ class indicators:
                     df.loc[j,'wave_signal'] = 0
                     j = j-1
 
+        df['wave_signal_start']=0 # first three rows of wave 
+
+        for no,row in df.iterrows():
+            if no==0:
+                continue 
+            prev_row=df.iloc[no-1]['wave_signal']
+            next_five_rows=df.iloc[no+1:no+5]['wave_signal'].tolist()
+            if prev_row==0 and all(next_five_rows)==1:
+                df.loc[no+1:no+2,'wave_signal_start']=1
+                
+        df['wave_signal_end']=0
+        for no, row in df.iterrows():
+            if no==0:
+                continue
+            prev_row=df.iloc[no-1]['wave_signal']
+            this_row=df.iloc[no]['wave_signal']
+            next_five_rows=df.iloc[no+1:no+2]['wave_signal'].tolist()
             
+            if this_row==0 and prev_row==1 and all(next_five_rows)==0:
+                df.loc[no-3:no-1,'wave_signal_end']=1
+                print(no)
+            
+
         return df['wave_signal'],df
 
 
@@ -546,13 +568,15 @@ if __name__=='__main__':
     
     df=df.iloc[:100]
     i=indicators(df)
-    df=i.signal_wave(df=df)
+    _,df=i.signal_wave(df=df)
     msk=df['wave_signal']==1
     longs_ser=df['low'][msk]
+    msk2=df['wave_signal_end']==1
+    shorts_ser=df['high'][msk2]
 
     
     additional_lines=[(0,df['ema10']),(0,df['ema15']) ]
-    plot_candlestick(df,longs_ser=longs_ser,  additional_lines=additional_lines)
+    plot_candlestick(df,longs_ser=longs_ser,shorts_ser=shorts_ser,  additional_lines=additional_lines)
 
 #    exit(1)
 #    signal=i.signal_big_green(df)

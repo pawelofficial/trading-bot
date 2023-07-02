@@ -141,10 +141,15 @@ model.eval() # Set model to evaluation mode
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 val_loss = 0
-correct = 0
+true_positives = 0
+false_negatives=0
 total = 0
+correct=0
+TPS,TNS,FPS,FNS=0,0,0,0
 predictions = []
 true_labels = []
 with torch.no_grad(): # We don't need gradient computation in evaluation phase
@@ -163,7 +168,14 @@ with torch.no_grad(): # We don't need gradient computation in evaluation phase
         true_labels.extend(labels.view(-1).tolist())
         
         # Compare with labels to check correctness
-        correct += (predicted == labels).sum().item()
+        TPS += ((predicted == 1) & (labels == 1)).sum().item()    # True Positives
+        TNS += ((predicted == 0) & (labels == 0)).sum().item()    # True Negatives
+        FPS += ((predicted == 1) & (labels == 0)).sum().item()    # False Positives
+        FNS += ((predicted == 0) & (labels == 1)).sum().item()    # False Negatives
+        
+        #true_positives += (predicted == labels==1).sum().item()
+        #false_negatives += (predicted == labels==0).sum().item()
+        correct+= (predicted == labels).sum().item()
         total += labels.size(0)
 
 # Compute average validation loss
@@ -190,6 +202,10 @@ model: {path}
 value counts : {Y.value_counts()}
 X shape: {X.shape}
 file : {qdf_fps}
+TRUE POSITIVES ( 1,1 ) TP : {TPS}  {round(TPS/total,5)} 
+TRUE NEGATIVES ( 0,0 ) TN : {TNS}  {round(TNS/total,5)}
+FALSE NEGATIVES (0,1) FN : {FNS}   {round(FNS/total,5)} 
+FALSE POSITIVES (1,0) FP : {FPS}   {round(FPS/total,5)}    - bad one 
 """
 print(s)
 

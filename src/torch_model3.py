@@ -11,17 +11,18 @@ import logging
 
 if __name__=='__main__':
     import logging
-    logging.basicConfig(filename='./src/logs/wave_model.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(filename='./src/logs/wave_model.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s')
     logging.warning('starting training')
 
 cool_name_for_variable='BTC-USD2022-01-01_2023-01-01'
+cool_name_for_variable='BTC-USD2022-01-01_2022-02-03'
 raw_fps=f'./src/data_backups/{cool_name_for_variable}.csv'
 
 df=pd.read_csv(raw_fps)
 
 df=wf__aggregate_df(df=df,scale=15)
 LR=0.0001
-epochs=1000
+epochs=10000
 nlq_number=50
 nlq_steepness=15
 nlq_accuracy=5
@@ -82,7 +83,7 @@ class Network(nn.Module):
 dataset = CustomDataset(X,Y)
 
 in_features=X.shape[1]
-scaling_factor=4
+scaling_factor=2
 model = Network(in_features,1,scaling_factor)
 if 0: # load model if you have it and has the same params 
     m='coinbase_model_202307011741'
@@ -155,6 +156,8 @@ correct=0
 TPS,TNS,FPS,FNS=0,0,0,0
 predictions = []
 true_labels = []
+trues=0
+falses=0
 with torch.no_grad(): # We don't need gradient computation in evaluation phase
     for i, data in enumerate(val_loader, 0):
         inputs, labels = data
@@ -171,13 +174,16 @@ with torch.no_grad(): # We don't need gradient computation in evaluation phase
         true_labels.extend(labels.view(-1).tolist())
         
         # Compare with labels to check correctness
-        TPS += (predicted == labels == 1).sum().item()    # True Positives
-        TNS += (predicted == labels == 0).sum().item()    # True Negatives
-        FPS += (predicted == 1 & labels == 0).sum().item()  # False Positives
-        FNS += (predicted == 0 & labels == 1).sum().item()  # False Negatives
+        TPS += ((predicted == 1) & (labels == 1)).sum().item()    # True Positives
+        TNS += ((predicted == 0) & (labels == 0)).sum().item()    # True Negatives
+        FPS += ((predicted == 1) & (labels == 0)).sum().item()    # False Positives
+        FNS += ((predicted == 0) & (labels == 1)).sum().item()    # False Negatives
         
-        true_positives += (predicted == labels==1).sum().item()
-        false_negatives += (predicted == labels==0).sum().item()
+        #true_positives += (predicted == labels==1).sum().item()
+        #false_negatives += (predicted == labels==0).sum().item()
+        trues +=(labels==1).sum().item()
+        falses +=(labels==0).sum().item()
+        
         correct+= (predicted == labels).sum().item()
         total += labels.size(0)
 
@@ -210,10 +216,12 @@ nlq_number {nlq_number}
 nlq_steepness {nlq_steepness}
 nlq_accuracy {nlq_accuracy}
 signal model : wave_model
-TRUE POSITIVES ( 1,1 ) TP : {TPS} 
-TRUE NEGATIVES ( 0,0 ) TN : {TNS}
-FALSE NEGATIVES (0,1) FN : {FNS}
-FALSE POSITIVES (1,0) FP : {FPS}       - bad one 
+TRUE POSITIVES ( 1,1 ) TP : {TPS}  {round(TPS/trues,5)} 
+TRUE NEGATIVES ( 0,0 ) TN : {TNS}  {round(TNS/falses,5)}
+FALSE NEGATIVES (0,1) FN : {FNS}   
+FALSE POSITIVES (1,0) FP : {FPS}    - bad one 
+trues : {trues}
+falses : {falses}
 """
 print(s)
 
