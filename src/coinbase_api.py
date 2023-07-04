@@ -304,6 +304,7 @@ class ApiUtils:
         truncate=True,
         granularity=60,
         filename=f"{api.asset_id}{start_dt.isoformat()[:10]}_{server_dt.isoformat()[:10]}"+'.csv' )
+        return f"{api.asset_id}{start_dt.isoformat()[:10]}_{server_dt.isoformat()[:10]}"+'.csv'
         
     def download_by_dates(self,api,start_date='01-01-2022',end_date='30-01-2022',path='./'):
         start_dt=datetime.datetime.strptime(start_date, '%d-%m-%Y')
