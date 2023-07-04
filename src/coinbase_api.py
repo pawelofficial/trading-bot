@@ -49,7 +49,8 @@ class coinbase_api():
         self.auth=auth
         self.d={'epoch':[],'open':[],'close':[],'low':[],'high':[],'volume':[],'timestamp':[],'msg':[]} # dictionary with data 
         self.data_df=pd.DataFrame(self.d)
-        self.data_df_len=2000 # num of rows of data_df  
+        self.data_df_len=2000 # num of rows of data_df   # not using 
+        self.bulk_df=pd.DataFrame(self.d)  # df with bulk download data 
         self.asset_id='XXX-USD'
     
     def reset_data_df(self):
@@ -166,7 +167,7 @@ class coinbase_api():
         
         self.data_df=pd.concat([self.data_df,pd.DataFrame(candle['parsed_data'])],ignore_index=True)
         # if len of df reached setting then drop first row first, works only for live feed, not for historical fetch
-        if len(self.data_df.index)>=self.data_df_len:# and len(candle['parsed_data'][distinct][0])==1:  
+        if len(self.data_df.index)>=self.data_df_len and False:# and len(candle['parsed_data'][distinct][0])==1:  
             todrop=len(self.data_df.index)-self.data_df_len 
             self.data_df.drop(np.arange(todrop),inplace=True)
             self.data_df.reset_index(drop=True, inplace=True) # drop first row and reset index 
@@ -252,7 +253,9 @@ class coinbase_api():
                 request_data=gen.__next__()
             except StopIteration as err:
                 print("end of iteration ")
-                return 
+                break 
+            
+            self.bulk_df.loc[len(self.bulk_df)]=request_data['parsed_data']
             self.write_dictionary_to_file(
                 filename=filename,
                 dic=request_data['parsed_data'],
@@ -261,9 +264,14 @@ class coinbase_api():
                 ext=ext,
                 write_header=write_header,
                 truncate=truncate)
+            
+            
             write_header=False
             truncate=False
             time.sleep(0.1)
+        df=pd.read_csv(path+'\\'+filename) # yeah this code is  terrible i know dont judge me ! :< 
+        self.bulk_df=df
+        return df 
 
 
 class ApiUtils:
@@ -329,9 +337,10 @@ class ApiUtils:
         while True:
             candle=api.fetch_last_candle()
             candle['parsed_data']['msg']=time.strftime('%X')
-            api.update_df(candle=candle,distinct='') # distinct epoch filtering 
-            print('------')
+            api.update_df(candle=candle,distinct='epoch') # distinct epoch filtering 
+            print('------',datetime.datetime.now(),'------',len(api.bulk_df))
             print(api.data_df)
+            
             time.sleep(1)
             
     

@@ -8,16 +8,7 @@ import datetime
 import logging 
 import time
 
-# Constants
-LR = 0.0001
-EPOCHS = 10000
-NLQ_NUMBER = 50
-NLQ_STEEPNESS = 15
-NLQ_ACCURACY = 5
-FILE_NAME = 'BTC-USD2022-01-01_2022-02-03'
-FILE_PATH = f'./src/data_backups/{FILE_NAME}.csv'
-BATCH_SIZE = 32
-SCALING_FACTOR = 2
+
 
 # Set up logging
 def setup_logging():
@@ -102,11 +93,10 @@ def train_model(train_loader, model, criterion, optimizer, epochs):
         print(f"Epoch {epoch+1} - Training loss: {running_loss/len(train_loader)}")
 
 # Save the trained model
-def save_model(model):
-    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
-    path = f'./src/models/wave_models/wave_{ts}.pth'
-    torch.save(model.state_dict(), path)
-    return path
+def save_model(model,save_fps):
+
+    torch.save(model.state_dict(), save_fps)
+    return save_fps
 
 # Evaluate the model
 def evaluate_model(val_loader, model, criterion):
@@ -140,22 +130,66 @@ def evaluate_model(val_loader, model, criterion):
     return avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses
 
 # Print and log results
-def log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses, model_path, X, Y):
-    s = f"""[...]
+def log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses, model_path, X, Y
+                , epochs,nlq_number,nlq_steepness,nlq_accuracy,data_fps):
+    s=f"""
+    f"Average validation loss: {avg_val_loss}
+    f"Validation accuracy: {val_accuracy}
+    f"F1 score: {f1}
+    Number of 1s in true labels: {true_labels.count(1)}
+    Number of 0s in true labels: {true_labels.count(0)}
+    Number of 1s in predictions: {predictions.count(1)}
+    Number of 0s in predictions: {predictions.count(0)}
+    true positives : {predictions.count(1)} / {true_labels.count(1)} = {round(predictions.count(1)/true_labels.count(1),2)}
+    false negatives: {predictions.count(0)} / {true_labels.count(0)} = {round(predictions.count(0)/true_labels.count(0),2)}
+    Epochs: {epochs}
+    model: {model_path}
+    value counts : {Y.value_counts()}
+    X shape: {X.shape}
+    file : {data_fps}
+    epochs : {epochs}
+    nlq_number {nlq_number}
+    nlq_steepness {nlq_steepness}
+    nlq_accuracy {nlq_accuracy}
+    signal model : wave_model
+    TRUE POSITIVES ( 1,1 ) TP : {TPS}  {round(TPS/trues,5)} 
+    TRUE NEGATIVES ( 0,0 ) TN : {TNS}  {round(TNS/falses,5)}
+    FALSE NEGATIVES (0,1) FN : {FNS}   
+    FALSE POSITIVES (1,0) FP : {FPS}    - bad one 
+    trues : {trues}
+    falses : {falses}
     """
     print(s)
     logging.warning(f'------------{datetime.datetime.now().strftime("%Y%m%d%H%M")}--------------')
     logging.warning(s)
 
 if __name__ == '__main__':
+# Constants
+    preload_model='./src/models/wave_models/wave_202307021624.pth'
+    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    save_fps = f'./src/models/wave_models/wave_{ts}.pth'
+    LR = 0.0001
+    EPOCHS = 10
+    NLQ_NUMBER = 50
+    NLQ_STEEPNESS = 15
+    NLQ_ACCURACY = 5
+    FILE_NAME = 'BTC-USD2022-01-01_2022-02-03'
+    FILE_PATH = f'./src/data_backups/{FILE_NAME}.csv'
+    BATCH_SIZE = 32
+    SCALING_FACTOR = 2
     setup_logging()
     X, Y = load_data()
     dataset = CustomDataset(X, Y)
     model = Network(X.shape[1], 1, SCALING_FACTOR)
+    model.load_state_dict(torch.load(preload_model))
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
     train_dataset, val_dataset = split_dataset(dataset)
     train_loader, val_loader = create_dataloaders(train_dataset, val_dataset)
     train_model(train_loader, model, criterion, optimizer, EPOCHS)
-    model_path = save_model(model)
+    avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses = evaluate_model(val_loader, model, criterion)
+    model_path = save_model(model,save_fps)
+    log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses,model_path, X, Y,
+                EPOCHS,NLQ_NUMBER,NLQ_STEEPNESS,NLQ_ACCURACY,FILE_PATH)
+    
    
