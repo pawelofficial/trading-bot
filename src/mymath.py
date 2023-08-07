@@ -102,7 +102,7 @@ class myMath:
     def aggregate(self,df :pd.DataFrame = pd.DataFrame({}), scale : int = 5, src_col : str = 'timestamp',cols : list = ['open','close','low','high','volume']):
         if df.empty:
             df=self.math_df
-        if src_col not in df.columns:
+        if src_col not in df.columns: 
             print('src col not in df columns')
             raise 
         dt_col = '-'.join(['ts',str(scale) ])
