@@ -1,0 +1,5 @@
+def compute():
+    return 1;
+
+def my_add(x,y):
+    return x+y
