@@ -4,6 +4,17 @@ from typing import Any
 import pandas as pd
 import matplotlib.pyplot as plt 
 import os 
+from rich.traceback import install
+import random 
+import logging 
+import numpy as np 
+install()
+
+# Set up logging
+def setup_logging():
+    logging.basicConfig(filename='./logs/signals.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+    logging.warning('starting ')
+
 
 class signals:
     def __init__(self, df=pd.DataFrame({})) -> Any:
@@ -12,14 +23,76 @@ class signals:
         self.data_fp=os.path.join(self.this_dir,'data')
         pass
     
-    def signal_wave(self,df,N=10):
+
+    # new version of wave signal 
+    def signal_wave2(self,df,ema1=5,ema2=10,shift_no=1):
+        threshold=1
+        N=4
+        flat_threshold=0.2
+        df=df.copy()
+        df['wave_signal']=0 # declare wave signal 
+        
+        df['dif'] = df['close'] - df['open']                             # Difference between open and close
+        df['flat'] = df['dif'].abs() < df['dif'].abs().mean() * flat_threshold
+        df['green'] = (df['dif'] > 0) | (df['flat'] == True)
+        
+        df[f'ema{ema1}']=df['close'].ewm(span=ema1).mean()
+        df[f'ema{ema2}']=df['close'].ewm(span=ema2).mean()
+    
+        # first condition -> ema10 > ema15
+        df['condition1']=(df[f'ema{ema1}']>df[f'ema{ema2}']).astype(int)  
+        
+        # second condition -> mid of candle above ema1 
+        df['condition2']=(df['close']+df['open'])/2  -df[f'ema{ema1}'] >0
+        
+        # remove condition2 orphans 
+        df['tmp_wave']=df['condition1'] & df['condition2']
+        df['tmp_orphans']=0
+        for no in range(1,len(df)-1):
+            next_row=df.iloc[no+1]['tmp_wave']
+            previous_row=df.iloc[no-1]['tmp_wave']
+            if next_row==0:
+                if previous_row==0:
+                    df.loc[no,'tmp_orphans']=1
+        df['tmp_wave']=df['tmp_wave'] & ~df['tmp_orphans']
+
+
+        # third condition -> green candles prior to ema signal 
+        df['condition3']=0
+        for no,row in df.iterrows():
+            if row['tmp_wave']==1:  # if current row is a wave 
+                j=no            
+                while j>0 and df.loc[j-1,'green']==1: # if previous candle is green make it green
+                    df.loc[j-1,'condition3']=1    
+                    j=j-1
+        df['tmp_wave']=df['tmp_wave']  | df['condition3']
+
+
+        # fourth condition -> trailing red candles 
+        df['condition4']=0
+        for no,row in df.iterrows():
+            next_rows=df.iloc[no+1:no+N]['tmp_wave'].tolist()
+            if next_rows.count(1)==0:
+                df.loc[no,'condition4']=1
+        df['condition4']=df['condition4'] & ~df['green']
+        df['tmp_wave']=df['tmp_wave']  & ~df['condition4']
+        df['wave_signal'] = df['tmp_wave']
+        
+        # fifth condition - catch green or flat candles prior to wave 
+        
+        if shift_no is not None:
+            df['wave_signal']=df['wave_signal'].shift(shift_no).fillna(0).astype(float)
+        
+        return df['wave_signal'],df
+    
+    def signal_wave(self,df,N=5):
         threshold=0.8
         df=df.copy()
         
         df['dif']=(df['close']-df['open']).abs()
         df['flat']=df['dif']<df['dif'].mean()*0.2
         
-        df['green']=((df['close']-df['open']>0) | (df['flat']==1) ).astype(int)
+        df['green']=((df['close']-df['open']>0) & (df['flat']==0) ).astype(int)
         ema10=df['close'].ewm(span=10).mean()
         ema15=df['close'].ewm(span=15).mean()
         df['ema10']=ema10
@@ -92,6 +165,52 @@ class signals:
         return df,fp
 
 
+    def backtest_random(self,df=None, money=10000,  price_col=['open', 'close']):
+        if df is None:
+            df = self.df
+        df=df.copy()
+        df['entry']=random.choices([0,1],k=len(df))
+        df['exit']=random.choices([0,1],k=len(df))
+        money,r=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col)
+        return money, r 
+
+
+    # simple backtest 
+    def backtest(self, df=None, money=10000, entry_signal='entry', exit_signal='exit', price_col=['open', 'close']):
+        money_zero=money
+        if df is None:
+            df = self.df
+        df=df.copy()
+        amo = 0
+        for _, row in df.iterrows():
+            #print(amo,money,row[price_col].to_dict(), row[entry_signal], row[exit_signal] )
+            #input('wait')
+            d = row.to_dict()
+            if d[entry_signal] == 1 and money >=0 :  # Check for non-zero price
+                logging.warning('buying')
+                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+                amo += money / d[price_col[0]]
+                money = 0
+                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+            elif d[exit_signal] == 1 and amo>=0 :
+                logging.warning('selling')
+                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+                money += amo * d[price_col[1]]
+                amo = 0
+                logging.warning('sold')
+                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+
+
+
+        if amo != 0:  # Only add to money if there are holdings left
+            money += amo * df.iloc[-1][price_col[1]]
+            
+        return money, money/money_zero*100
+
+        
+                
+
+
 def plot_df(df, top_chart_cols=['col1', 'col2'], bottom_chart_cols=['col1', 'col3']):
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 6))
     
@@ -119,7 +238,9 @@ def plot_candlestick(df
                      , longs_ser:pd.Series = pd.Series(dtype=float)   # my longs 
                      , real_longs:pd.Series = pd.Series(dtype=float)  # model longs 
                      , real_shorts:pd.Series = pd.Series(dtype=float) # model shorts 
+                     , purple_ser:pd.Series = pd.Series(dtype=float) # model shorts 
                      , additional_lines = None # top chart additional line 
+                     , extra_sers=[]
                      ):
     plt.rcParams['axes.facecolor'] = 'y'
     low=df['low']
@@ -149,7 +270,7 @@ def plot_candlestick(df
         
     if 'LONGS_SIGNAL' in df.columns:
         msk=df['LONGS_SIGNAL']==1
-        ax[0].plot(df[msk].index, df[msk]['low']*df[msk]['LONGS_SIGNAL'],'^g')
+        ax[0].plot(df[msk].index, df[msk]['low']*df[msk]['LONGS_SIGNAL'], '^', color='lightgreen')
     if 'SHORTS_SIGNAL' in df.columns:
         msk=df['SHORTS_SIGNAL']==1
         ax[0].plot(df[msk].index, df[msk]['high']*df[msk]['SHORTS_SIGNAL'],'vr')
@@ -162,7 +283,7 @@ def plot_candlestick(df
 
     if not longs_ser.empty:
         mask=longs_ser>0
-        ax[0].plot(longs_ser.index[mask],longs_ser[mask],'^g')
+        ax[0].plot(longs_ser.index[mask],longs_ser[mask], '^', color='lightgreen')
         
     if not real_longs.empty:
         ax[0].plot(real_longs.index,real_longs,'og')
@@ -170,9 +291,20 @@ def plot_candlestick(df
     if not real_shorts.empty:
         ax[0].plot(real_shorts.index,real_shorts,'or')
         
+    if not purple_ser.empty:
+        mask=purple_ser>0
+        ax[0].plot(purple_ser.index[mask],purple_ser[mask],'om')
+        
+    for tup in extra_sers:
+        which_chart=tup[0]
+        marker=tup[1]
+        ser=tup[2]
+        mask=ser>0
+        ax[which_chart].plot(ser.index[mask],ser[mask],marker)
+        
+        
     if additional_lines is not None:
         for tup in additional_lines:
-
             which_chart=tup[0]
             series=tup[1]
             ax[which_chart].plot(series.index,series,'-',label=series.name)
@@ -181,11 +313,40 @@ def plot_candlestick(df
     plt.show()
     return ax 
     
+    
 if __name__=='__main__':
-    df=pd.read_csv('./data/data.csv',sep='|')[:200]
-    s,df=signals().signal_wave(df)
+    setup_logging()
+    df=pd.read_csv('./data/signals_df.csv',sep='|').reset_index()
+    df['close']=df['close'] / df['close'].ewm(span=100, adjust=False).mean()
+    df['open']=df['open'] / df['open'].ewm(span=100, adjust=False).mean()
+    
+    df['wave_signal']=df['wave_signal'].astype(int)
+    df['exit_signal']=abs(df['wave_signal']-1).astype(int)
+    #print(df[['wave_signal','exit_signal']].head(25))
+    
+    money,r=signals().backtest_random(df)
+    print(money,r)
+    money,r=signals().backtest(df,entry_signal='wave_signal',exit_signal='exit_signal' )
+    print(money,r)
+    exit(1)
+        
+    
+if __name__=='__main__':
+    df=pd.read_csv('./data/signals_df.csv',sep='|')[300:400].reset_index()
+    s,df=signals().signal_wave2(df)
+    #n1,n2=300,700
+    #df=df[n1:n2]#.reset_index()
+
+#    print(df['wave_signal'].head(25) )
+
+    #s,df=signals().signal_wave(df)
     longs=s*df['open']
-    plot_candlestick(df,longs_ser=longs,additional_lines=((0,df['ema10']) ,(0,df['ema15'])  )   )
+    condition3=df['condition3']*df['high']
+    
+    extra_sers=[(0,'xr',condition3) ]
+
+    plot_candlestick(df,longs_ser=longs,extra_sers=extra_sers
+                     ,  additional_lines=((0,df['ema5']) ,(0,df['ema10'])  )   )
 #    s,df=signals().signal_wave(df)
     
     

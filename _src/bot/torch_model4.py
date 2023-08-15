@@ -30,10 +30,13 @@ def setup_logging():
 #    q_df,q_fp,i_df,i_fp,s_df,signal=wf.wf__prep_data(fp=fp)
 #    return q_df, signal
 
-def load_data():
+def load_data(n=None):
     q_df=pd.read_csv('./data/quantiles_df.csv',sep='|')
     s_df=pd.read_csv('./data/signals_df.csv',sep='|')
-    return q_df,s_df['wave_signal']
+    if n is None:
+        return q_df,s_df['wave_signal']
+    else:
+        return q_df.iloc[:n,:],s_df['wave_signal'][:n]
 
 # Custom Dataset Class
 class CustomDataset(Dataset):
@@ -70,8 +73,8 @@ class Network(nn.Module):
         return x
 
 # Split dataset into train and validation
-def split_dataset(dataset):
-    train_size = int(0.8 * len(dataset))
+def split_dataset(dataset,N=1):
+    train_size = int(1 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     return train_dataset, val_dataset
@@ -83,32 +86,56 @@ def create_dataloaders(train_dataset, val_dataset):
     return train_loader, val_loader
 
 # Train the model
-def train_model(train_loader, model, criterion, optimizer, epochs):
+def train_model(train_loader, model, criterion, optimizer, epochs,loop_model=f'./models/wave_models/wave_loop.pth'):
     ts_now = time.time()
     for epoch in range(epochs):
         running_loss = 0.0
         for inputs, labels in train_loader:
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, labels.unsqueeze(1))
+            loss= my_bceloss(outputs, labels.unsqueeze(1))
+            #loss = criterion(outputs, labels.unsqueeze(1))
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
 
         if epoch % 100 == 0:
-            print('saving model !')
-            path = f'./models/wave_models/wave_loop.pth'
-            torch.save(model.state_dict(), path)
+            print(f'saving model !  {loop_model} ')
+            torch.save(model.state_dict(), loop_model)
             elapsed_time = time.time() - ts_now
             print(f'elapsed time {elapsed_time}')
 
         print(f"Epoch {epoch+1} - Training loss: {running_loss/len(train_loader)}")
 
 # Save the trained model
-def save_model(model,save_fps):
+def save(model,save_fps):
 
     torch.save(model.state_dict(), save_fps)
     return save_fps
+
+    # bceloss with penalty for false positives ! 
+def my_bceloss(outputs, labels, base_weights=None, false_positive_penalty=10.0):
+    # BCE loss implementation 
+    epsilon = 1e-12
+    loss = -labels * torch.log(outputs + epsilon) - (1 - labels) * torch.log(1 - outputs + epsilon)
+
+    # Calculate false positive penalty
+    fp_penalty = outputs * (1 - labels)
+    fp_weights = 1 + fp_penalty * (false_positive_penalty - 1)
+
+    # Calculate false positive penalty
+    #fp_penalty = ((outputs >= 0.5).float() * (1 - labels)).detach()
+    #fp_weights = 1 + fp_penalty * (false_positive_penalty - 1)
+
+    # Combine with base weights
+    if base_weights is not None:
+        combined_weights = base_weights * fp_weights
+    else:
+        combined_weights = fp_weights
+
+    loss = combined_weights * loss
+
+    return loss.mean()
 
 # Evaluate the model
 def evaluate_model(val_loader, model, criterion):
@@ -124,7 +151,8 @@ def evaluate_model(val_loader, model, criterion):
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
             labels = labels.view(-1, 1)
-            loss = criterion(outputs, labels)
+            #loss = criterion(outputs, labels)
+            loss=my_bceloss(outputs,labels.unsqueeze(1))
             val_loss += loss.item()
             predicted = (outputs >= 0.5).float()
             predictions.extend(predicted.view(-1).tolist())
@@ -144,7 +172,7 @@ def evaluate_model(val_loader, model, criterion):
 # Print and log results
 
 def log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses, model_path, X, Y
-                , epochs, nlq_number, nlq_steepness, nlq_accuracy, data_fps):
+                , epochs, nlq_number, nlq_steepness, nlq_accuracy, data_fps,comment=''):
     
     # Header
     header = f"------------{datetime.datetime.now().strftime('%Y%m%d%H%M')}--------------"
@@ -188,6 +216,7 @@ def log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, T
     - Number_of_1s_in_predictions: {predictions.count(1)}
     - Number_of_0s_in_predictions: {predictions.count(0)}
     - Dataset Size : {len(predictions)}
+    - comment : {comment}
     """
     
     # Construct the log message
@@ -201,11 +230,13 @@ def log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, T
 
 if __name__ == '__main__':
 # Constants
-    preload_model='./models/wave_models/wave_202307021624.pth'
-    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")
-    save_fps = f'./models/wave_models/wave_{ts}.pth'
+    loop_model=f'./models/wave_models/wave_loop.pth'                        # model to be saved during loop 
+    preload_model='./models/wave_models/wave_loop.pth'               # model to be preloaded before training 
+    ts = datetime.datetime.now().strftime("%Y%m%d%H%M")                     # model to be saved 
+    save_model = f'./models/wave_models/wave_{ts}.pth'
     LR = 0.0001
-    EPOCHS = 1000
+    EPOCHS = 101
+    TRAIN_TEST_SPLIT=1 
     NLQ_NUMBER = 50
     NLQ_STEEPNESS = 15
     NLQ_ACCURACY = 5
@@ -217,15 +248,21 @@ if __name__ == '__main__':
     X, Y = load_data()
     dataset = CustomDataset(X, Y)
     model = Network(X.shape[1], 1, SCALING_FACTOR)
-    #model.load_state_dict(torch.load(preload_model))
+    model.load_state_dict(torch.load(preload_model))
+    # add weights to criterion
+    comment = ' bce loss explicit formula with weights added to false positives'
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
-    train_dataset, val_dataset = split_dataset(dataset)
+    train_dataset, val_dataset = split_dataset(dataset,N= TRAIN_TEST_SPLIT)
     train_loader, val_loader = create_dataloaders(train_dataset, val_dataset)
-    train_model(train_loader, model, criterion, optimizer, EPOCHS)
+    train_model(train_loader, model, criterion, optimizer, EPOCHS,loop_model=loop_model)
+    
+    if TRAIN_TEST_SPLIT ==1: 
+        val_loader=train_loader
+        
     avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses = evaluate_model(val_loader, model, criterion)
-    model_path = save_model(model,save_fps)
+    model_path = save(model,save_model)
     log_results(avg_val_loss, val_accuracy, f1, predictions, true_labels, TPS, TNS, FPS, FNS, trues, falses,model_path, X, Y,
-                EPOCHS,NLQ_NUMBER,NLQ_STEEPNESS,NLQ_ACCURACY,FILE_PATH)
+                EPOCHS,NLQ_NUMBER,NLQ_STEEPNESS,NLQ_ACCURACY,FILE_PATH,comment=comment)
     
    

@@ -271,7 +271,7 @@ class coinbase_api():
                            ,start_dt='01-01-2023'
                            ,end_dt='01-02-2023'
                            ,granularity=60
-                           ,to_df=False,to_csv=True,fp=None):
+                           ,to_df=False,to_csv=True,fp=None,fname=None):
         """downloads data from start_dt to end_dt into a csv or a df"""
         start_dt=datetime.datetime.strptime(start_dt, '%d-%m-%Y')
         end_dt=datetime.datetime.strptime(end_dt, '%d-%m-%Y')
@@ -280,7 +280,9 @@ class coinbase_api():
         if fp is None: 
             start_date=start_dt.strftime('%Y%m%d_%H%M%S')
             end_date=end_dt.strftime('%Y%m%d_%H%M%S')
-            fp=os.path.join(self.data_fp,f'bulk_download_{start_date}_{end_date}_{self.asset_id}_{granularity}.csv')
+            if fname is None:
+                fname=f'bulk_download_{start_date}_{end_date}_{self.asset_id}_{granularity}.csv'
+            fp=os.path.join(self.data_fp,fname)
             
         gen=self.fetch_historical_candles(
             start_dt=start_dt,
