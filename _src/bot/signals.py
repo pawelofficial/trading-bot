@@ -8,19 +8,26 @@ from rich.traceback import install
 import random 
 import logging 
 import numpy as np 
+from backtesting import Backtest, Strategy
+import datetime
 install()
+random.seed(1)
 
 # Set up logging
 def setup_logging():
-    logging.basicConfig(filename='./logs/signals.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(filename='./logs/signals.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s',)
     logging.warning('starting ')
+    logging.propagate = False
 
-
+setup_logging()
 class signals:
     def __init__(self, df=pd.DataFrame({})) -> Any:
         self.df=df.copy()
         self.this_dir=os.path.dirname(os.path.abspath(__file__))
         self.data_fp=os.path.join(self.this_dir,'data')
+        self.normfun=lambda x: x.ewm(span=100).mean()
+        self.buy_flg=1   # set to 1 to test switcharoo stradegy  
+        self.sell_flg=0
         pass
     
 
@@ -81,7 +88,7 @@ class signals:
         # fifth condition - catch green or flat candles prior to wave 
         
         if shift_no is not None:
-            df['wave_signal']=df['wave_signal'].shift(shift_no).fillna(0).astype(float)
+            df['wave_signal']=df['wave_signal'].shift(shift_no).fillna(0).astype(int)
         
         return df['wave_signal'],df
     
@@ -164,68 +171,163 @@ class signals:
         df[cols].to_csv(fp,sep='|',index=False)
         return df,fp
 
-
-    def backtest_random(self,df=None, money=10000,  price_col=['open', 'close']):
+    # backtests baseline strategies - random, hodl, avg
+    def backtest_baseline(self,df=None, money=10000,  price_col=['open', 'close'],normalize=True):
         if df is None:
             df = self.df
         df=df.copy()
+        results_d={}
+        
+        # random denormalized  
         df['entry']=random.choices([0,1],k=len(df))
         df['exit']=random.choices([0,1],k=len(df))
-        money,r=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col)
-        return money, r 
+        _,r,_=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col,normalize=False)
+        results_d['random_denorm']=r
+        # random normalized 
+        _,r,_=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col,normalize=True)
+        results_d['random_norm']=r
+        # hodl denormalized 
+        df['entry']=1
+        df['exit']=0
+        _,r,_=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col,normalize=False)
+        results_d['hodl_denorm']=r
+        # hodl normalized 
+        _,r,_=self.backtest(df=df,money=money,entry_signal='entry',exit_signal='exit',price_col=price_col,normalize=True)
+        results_d['hodl_norm']=r
+         
+        # linreg denormalized and normalized 
+        X = df.index.tolist()
+        y = df['close'].tolist()
+        y_norm=(df['close']/self.normfun(df['close']) ).tolist()
+        slope, intercept=np.polyfit(X,y,1)
+        start_pa=X[0]
+        end_pa=X[-1]
+        r_linreg=(intercept+slope*end_pa) / (intercept+slope*start_pa)
+        results_d['linreg']=r_linreg
+        slope, intercept=np.polyfit(X,y_norm,1)
+        r_linreg_norm=(intercept+slope*end_pa) / (intercept+slope*start_pa)
+        results_d['linreg_norm']=r_linreg_norm
+        
+        
+        
+        return results_d
 
 
-    # simple backtest 
-    def backtest(self, df=None, money=10000, entry_signal='entry', exit_signal='exit', price_col=['open', 'close']):
-        money_zero=money
+    # backtests a strategy 
+    def backtest(self, df=None, money=10000, entry_signal='entry', exit_signal='exit', price_col=['open', 'close']
+                 ,normalize=True       # normalizes open / close price by its mean - kind of introduces lookahead since mean uses it 
+                 ,fraction_buy=1    # % of input money to buy when signal = 1 
+                 ,fraction_sell=1):    # % of input money in current amo price to sell when signal = 0 
         if df is None:
             df = self.df
         df=df.copy()
-        amo = 0
-        for _, row in df.iterrows():
-            #print(amo,money,row[price_col].to_dict(), row[entry_signal], row[exit_signal] )
-            #input('wait')
-            d = row.to_dict()
-            if d[entry_signal] == 1 and money >=0 :  # Check for non-zero price
-                logging.warning('buying')
-                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
-                amo += money / d[price_col[0]]
-                money = 0
-                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
-            elif d[exit_signal] == 1 and amo>=0 :
-                logging.warning('selling')
-                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
-                money += amo * d[price_col[1]]
-                amo = 0
-                logging.warning('sold')
-                logging.warning(f"amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
-
-
-
-        if amo != 0:  # Only add to money if there are holdings left
-            money += amo * df.iloc[-1][price_col[1]]
-            
-        return money, money/money_zero*100
-
         
+        fraction_money_buy=money*fraction_buy      # corresponding money amount to buy 
+        fraction_money_sell=money*fraction_sell    # corresponding money amount to sell 
+        money_zero=money                           # used for fraction calculation at the end 
+        if normalize:
+            df['close']=df['close']/self.normfun(df['close'])     #   df['close'].ewm(span=100).mean()  # ewm mean normalization
+            df['open']=df['open']/self.normfun(df['open'])        #  df['open'].ewm(span=100).mean() 
+        
+        trades_df=pd.DataFrame(columns=['entry','exit','pa','profit','profit_perc','money','amo','value','side','portfolio','timestamp','comment','amo_made']) # trades df 
+        trades_d={k:0 for k  in trades_df.columns} 
+
+        good_trades,bad_trades=0,0
+        amo = 0 # current amo of asset 
+        save_trade=0 # bool for saving trades in df 
+        trade_side='none'
+        buy_price=1
+        sell_price=1
+        for _, row in df.iterrows():
+            d = row.to_dict()
+            if d[entry_signal] == self.buy_flg and money > 0:      # buying due to signal 
+                trades_d['comment']=''
+                buy_price=d[price_col[0]]               # buying at current price
+                pa=buy_price
+                save_trade,trade_side=1,1                            # saving this trade 
+                if fraction_money_buy < money and fraction_buy!=1:          # buying a fraction or going all in 
+                    buy_money = fraction_money_buy
+                else:
+                    buy_money = money                   
+                buy_amount = buy_money  / d[price_col[0]] # corresponding amount of asset based on current price 
+                logging.warning(f" buying amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+                amo += buy_amount                      # updating held amo 
+                money -= buy_money                     # updating held money 
+                logging.warning(f" bought amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+
+            if d[exit_signal] == self.sell_flg and amo > 0:      # selling due to signal 
+                sell_price=d[price_col[1]]            # selling at current price
+                pa=sell_price
+                if sell_price> buy_price:    # updating peak asset price
+                    trades_d['comment']=f'good trade'
+                    good_trades+=1
+                else:
+                    bad_trades+=1
+                    trades_d['comment']=f'bad trade'
                 
+                
+                save_trade,trade_side=1,0
+                fraction_amo=fraction_money_sell / d[price_col[1]]         
+                if fraction_amo < amo and fraction_sell!=1:          
+                    sell_amount = fraction_amo
+                else:
+                    sell_amount=amo
+                logging.warning(f"selling amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+                
+                money += sell_amount * d[price_col[1]]
+                amo -= sell_amount
+                
+                logging.warning(f"sold amo: {amo}, money: {money}, price data: {row[price_col].to_dict()}, entry: {row[entry_signal]}, exit: {row[exit_signal]}")
+            if save_trade==1:
+                save_trade=0
+                
+                trades_d['money']=money
+                trades_d['amo']=amo
+                trades_d['entry']=row[entry_signal]
+                trades_d['exit']=row[exit_signal]
+                trades_d['pa']=pa
+                trades_d['amo_made']=buy_price/sell_price
+                trades_d['value']=amo*row[price_col[1]]+money
+                trades_d['side']=trade_side
+                trades_d['timestamp']=row['timestamp']
+                trades_df.loc[len(trades_df)]=trades_d
+                #print(trades_df)
+                #input('wait')
+
+
+        if amo != 0:                                    # selling everything at the end  - shouldnt happen 
+            money += amo * df.iloc[-1][price_col[1]]
+            logging.warning(f"selling at the end : {amo}, money: {money}, price data: {df.iloc[-1].to_dict()} ")
+            trades_d={k:0 for k  in trades_df.columns}
+            trades_d['money']=money
+            trades_d['amo']=amo
+            trades_d['side']=0
+            trades_d['value']=money
+            trades_d['timestamp']=row['timestamp']
+            trades_df.loc[len(trades_df)]=trades_d
+            
+        logging.warning(trades_df.to_csv())             # saving trades df 
+        return money, money/money_zero*100,trades_df
+
 
 
 def plot_df(df, top_chart_cols=['col1', 'col2'], bottom_chart_cols=['col1', 'col3']):
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 6))
     
     # Top chart
-    for col in top_chart_cols:
-        ax[0].scatter(df.index, df[col], label=col)
-    ax[0].legend()
-    ax[0].set_title('Top Chart: ' + ', '.join(top_chart_cols))
+    if top_chart_cols is not None:
+        for col in top_chart_cols:
+            ax[0].scatter(df.index, df[col], label=col)
+        ax[0].legend()
+        ax[0].set_title('Top Chart: ' + ', '.join(top_chart_cols))
     
     
     # Bottom chart
-    for col in bottom_chart_cols:
-        ax[1].scatter(df.index, df[col], label=col)
-    ax[1].legend()
-    ax[1].set_title('Bottom Chart: ' + ', '.join(bottom_chart_cols))
+    if bottom_chart_cols is not None:
+        for col in bottom_chart_cols:
+            ax[1].scatter(df.index, df[col], label=col)
+        ax[1].legend()
+        ax[1].set_title('Bottom Chart: ' + ', '.join(bottom_chart_cols))
     
     plt.tight_layout()
     ax[0].grid(True,which="both",ls="-", color='0.65')
@@ -233,121 +335,31 @@ def plot_df(df, top_chart_cols=['col1', 'col2'], bottom_chart_cols=['col1', 'col
     plt.show()
 
     
-def plot_candlestick(df
-                     , shorts_ser:pd.Series = pd.Series(dtype=float)  # my shorts 
-                     , longs_ser:pd.Series = pd.Series(dtype=float)   # my longs 
-                     , real_longs:pd.Series = pd.Series(dtype=float)  # model longs 
-                     , real_shorts:pd.Series = pd.Series(dtype=float) # model shorts 
-                     , purple_ser:pd.Series = pd.Series(dtype=float) # model shorts 
-                     , additional_lines = None # top chart additional line 
-                     , extra_sers=[]
-                     ):
-    plt.rcParams['axes.facecolor'] = 'y'
-    low=df['low']
-    high=df['high']
-    open=df['open']
-    close=df['close']
-    # mask for candles 
-    green_mask=df['close']>=df['open']
-    red_mask=df['open']>df['close']
-    up=df[green_mask]
-    down=df[red_mask]
-    # colors
-    col1='green'
-    black='black'
-    col2='red'
 
-    width = .4
-    width2 = .05
 
-    fig,ax=plt.subplots(2,1)
-    ax[0].bar(up.index,up['high']-up['close'],width2,bottom=up['close'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['low']-up['open'],width2, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['close']-up['open'],width, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(down.index,down['high']- down['close'],width2,bottom=down['close'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['low']-  down['open'],width2,bottom=down['open'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['close']-down['open'],width,bottom=down['open'],color=col2,edgecolor=black)
-        
-    if 'LONGS_SIGNAL' in df.columns:
-        msk=df['LONGS_SIGNAL']==1
-        ax[0].plot(df[msk].index, df[msk]['low']*df[msk]['LONGS_SIGNAL'], '^', color='lightgreen')
-    if 'SHORTS_SIGNAL' in df.columns:
-        msk=df['SHORTS_SIGNAL']==1
-        ax[0].plot(df[msk].index, df[msk]['high']*df[msk]['SHORTS_SIGNAL'],'vr')
-        
-        
-        
-    if not shorts_ser.empty:
-        mask=shorts_ser>0
-        ax[0].plot(shorts_ser.index[mask],shorts_ser[mask],'vr')
-
-    if not longs_ser.empty:
-        mask=longs_ser>0
-        ax[0].plot(longs_ser.index[mask],longs_ser[mask], '^', color='lightgreen')
-        
-    if not real_longs.empty:
-        ax[0].plot(real_longs.index,real_longs,'og')
-
-    if not real_shorts.empty:
-        ax[0].plot(real_shorts.index,real_shorts,'or')
-        
-    if not purple_ser.empty:
-        mask=purple_ser>0
-        ax[0].plot(purple_ser.index[mask],purple_ser[mask],'om')
-        
-    for tup in extra_sers:
-        which_chart=tup[0]
-        marker=tup[1]
-        ser=tup[2]
-        mask=ser>0
-        ax[which_chart].plot(ser.index[mask],ser[mask],marker)
-        
-        
-    if additional_lines is not None:
-        for tup in additional_lines:
-            which_chart=tup[0]
-            series=tup[1]
-            ax[which_chart].plot(series.index,series,'-',label=series.name)
-        
-    ax[0].legend()
-    plt.show()
-    return ax 
-    
-    
 if __name__=='__main__':
     setup_logging()
-    df=pd.read_csv('./data/signals_df.csv',sep='|').reset_index()
-    df['close']=df['close'] / df['close'].ewm(span=100, adjust=False).mean()
-    df['open']=df['open'] / df['open'].ewm(span=100, adjust=False).mean()
-    
-    df['wave_signal']=df['wave_signal'].astype(int)
-    df['exit_signal']=abs(df['wave_signal']-1).astype(int)
-    #print(df[['wave_signal','exit_signal']].head(25))
-    
-    money,r=signals().backtest_random(df)
-    print(money,r)
-    money,r=signals().backtest(df,entry_signal='wave_signal',exit_signal='exit_signal' )
-    print(money,r)
-    exit(1)
+    fr=1
+
         
+    df=pd.read_csv('./data/signals_df.csv',sep='|').reset_index()
+    q1,q2=0,1 
+    start=len(df)*q1//1
+    end=len(df)*q2//1
+    df=df.loc[start:end]
+    # normalize data 
+    #df['close']=df['close']/df['close'].mean()
+    #df['open']=df['open']/df['open'].mean()
+    #df['high']=df['high']/df['high'].mean()
+    #df['low']=df['low']/df['low'].mean()
+    #df['wave_signal']=df['wave_signal'].astype(int)
+    #df['exit_signal']=abs(df['wave_signal']-1).astype(int)
     
-if __name__=='__main__':
-    df=pd.read_csv('./data/signals_df.csv',sep='|')[300:400].reset_index()
-    s,df=signals().signal_wave2(df)
-    #n1,n2=300,700
-    #df=df[n1:n2]#.reset_index()
+    money,r,_=signals().backtest(df,entry_signal='wave_signal',exit_signal='wave_signal',normalize=True,fraction_buy=1, fraction_sell=fr )
+    print(f'fr: {fr} r: {r}')
+#    exit(1)
+    d=signals().backtest_baseline(df)
+    print(d)
+#    print(f'fr: {fr} r: {r}')
 
-#    print(df['wave_signal'].head(25) )
-
-    #s,df=signals().signal_wave(df)
-    longs=s*df['open']
-    condition3=df['condition3']*df['high']
-    
-    extra_sers=[(0,'xr',condition3) ]
-
-    plot_candlestick(df,longs_ser=longs,extra_sers=extra_sers
-                     ,  additional_lines=((0,df['ema5']) ,(0,df['ema10'])  )   )
-#    s,df=signals().signal_wave(df)
-    
-    
     

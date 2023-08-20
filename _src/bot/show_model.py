@@ -20,7 +20,7 @@ def read_model(model_fp,quantiles_df):
     return model
 
 # evaluate a model on a dataframe containing quantiles
-def evaluate_model(model, quantiles_df, signals_df, model_column='model_output'):
+def evaluate_model(model, quantiles_df, signals_df, model_column='model_signal'):
     X = torch.tensor(quantiles_df.values).float()
     val_loader = DataLoader(X, batch_size=32, shuffle=False)  # Make sure shuffle is False
     

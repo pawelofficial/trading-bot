@@ -30,6 +30,7 @@ def setup_logging():
 #    q_df,q_fp,i_df,i_fp,s_df,signal=wf.wf__prep_data(fp=fp)
 #    return q_df, signal
 
+# loads signals_Df and quantiles_df 
 def load_data(n=None):
     q_df=pd.read_csv('./data/quantiles_df.csv',sep='|')
     s_df=pd.read_csv('./data/signals_df.csv',sep='|')
