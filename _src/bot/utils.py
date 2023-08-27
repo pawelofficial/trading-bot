@@ -2,14 +2,18 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import torch 
 from matplotlib.ticker import MaxNLocator
+import logging 
 
-from torch_model4 import Network
+#from torch_model4 import Network
 from torch.utils.data import Dataset, DataLoader, random_split
 
 
 def plot_two_dfs(top_df, bot_df, top_chart_cols=['col1', 'col2'],top_index=None
                  , bottom_chart_cols=['col1', 'col3'],bot_index=None
-                 , additional_sers=None):
+                 , additional_sers=None
+                 ,do_show=False
+                 ,do_save=True
+                 ,save_fp='./data/two_dfs.png'):
     N=2
     if len(additional_sers)>2:
         N=len(additional_sers)
@@ -61,8 +65,10 @@ def plot_two_dfs(top_df, bot_df, top_chart_cols=['col1', 'col2'],top_index=None
     ax[0].xaxis.set_major_locator(MaxNLocator(nbins=10))  # Let's say you want 10 ticks for the top plot
     ax[1].xaxis.set_major_locator(MaxNLocator(nbins=10))  # And 10 ticks for the bottom plot as well
 
-    
-    plt.show()
+    if do_show:        
+        plt.show()
+    if do_save:
+        plt.savefig(save_fp)
 
 def plot_df(df, top_chart_cols=['col1', 'col2'], bottom_chart_cols=['col1', 'col3']):
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10, 6))
@@ -86,90 +92,6 @@ def plot_df(df, top_chart_cols=['col1', 'col2'], bottom_chart_cols=['col1', 'col
     ax[0].grid(True,which="both",ls="-", color='0.65')
     ax[1].grid(True,which="both",ls="-", color='0.65')
     plt.show()
-
-    
-def old_plot_candlestick(df
-                     , shorts_ser:pd.Series = pd.Series(dtype=float)  # my shorts 
-                     , longs_ser:pd.Series = pd.Series(dtype=float)   # my longs 
-                     , real_longs:pd.Series = pd.Series(dtype=float)  # model longs 
-                     , real_shorts:pd.Series = pd.Series(dtype=float) # model shorts 
-                     , purple_ser:pd.Series = pd.Series(dtype=float) # model shorts 
-                     , additional_lines = None # top chart additional line 
-                     , extra_sers=[]
-                     ):
-    plt.rcParams['axes.facecolor'] = 'y'
-    low=df['low']
-    high=df['high']
-    open=df['open']
-    close=df['close']
-    # mask for candles 
-    green_mask=df['close']>=df['open']
-    red_mask=df['open']>df['close']
-    up=df[green_mask]
-    down=df[red_mask]
-    # colors
-    col1='green'
-    black='black'
-    col2='red'
-
-    width = .4
-    width2 = .05
-
-    fig,ax=plt.subplots(2,1,sharex=True,sharey=True)
-    ax[0].bar(up.index,up['high']-up['close'],width2,bottom=up['close'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['low']-up['open'],width2, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(up.index,up['close']-up['open'],width, bottom=up['open'],color=col1,edgecolor=black)
-    ax[0].bar(down.index,down['high']- down['close'],width2,bottom=down['close'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['low']-  down['open'],width2,bottom=down['open'],color=col2,edgecolor=black)
-    ax[0].bar(down.index,down['close']-down['open'],width,bottom=down['open'],color=col2,edgecolor=black)
-        
-    if 'LONGS_SIGNAL' in df.columns:
-        msk=df['LONGS_SIGNAL']==1
-        ax[0].plot(df[msk].index, df[msk]['low']*df[msk]['LONGS_SIGNAL'], '^', color='lightgreen')
-    if 'SHORTS_SIGNAL' in df.columns:
-        msk=df['SHORTS_SIGNAL']==1
-        ax[0].plot(df[msk].index, df[msk]['high']*df[msk]['SHORTS_SIGNAL'],'vr')
-        
-        
-        
-    if not shorts_ser.empty:
-        mask=shorts_ser>0
-        ax[0].plot(shorts_ser.index[mask],shorts_ser[mask],'vr')
-
-    if not longs_ser.empty:
-        mask=longs_ser>0
-        ax[0].plot(longs_ser.index[mask],longs_ser[mask], '^', color='lightgreen')
-        
-    if not real_longs.empty:
-        ax[0].plot(real_longs.index,real_longs,'og')
-
-    if not real_shorts.empty:
-        ax[0].plot(real_shorts.index,real_shorts,'or')
-        
-    if not purple_ser.empty:
-        mask=purple_ser>0
-        ax[0].plot(purple_ser.index[mask],purple_ser[mask],'om')
-        
-    for tup in extra_sers:
-        which_chart=tup[0]
-        marker=tup[1]
-        ser=tup[2]
-        label=tup[3]
-        mask=ser>0
-        ax[which_chart].plot(ser.index[mask],ser[mask],marker,label=label)
-        
-        
-    if additional_lines is not None:
-        for tup in additional_lines:
-            which_chart=tup[0]
-            series=tup[1]
-            ax[which_chart].plot(series.index,series,'-',label=series.name)
-        
-    ax[0].legend()
-    plt.show()
-    return ax 
-    
-    
     
 def plot_candlestick(df
                      , shorts_ser:pd.Series = pd.Series(dtype=float)  # my shorts 
@@ -270,12 +192,63 @@ def read_df(df_fp):
     df=pd.read_csv(df_fp,sep='|')
     return df
 
+def write_df(df,name,fp=None,mode='w'):
+    if mode=='a':
+        header=False
+    else:
+        header=True
+    if fp is None:
+        fp='data/'+name+'.csv'
+    df.to_csv(fp,sep='|',mode=mode,index=False,header=header)
 
 
-def read_model(model_fp,quantiles_df):
+def append_to_csv(df,fp='./data/test.csv'):
+    df.to_csv(fp,sep='|',index=False,mode='a',header=False)
+
+
+
+def plot_hist(df,col1,col2,ax1=0,ax2=1):
+    fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    df[col1].hist(ax=ax[0], bins=50, edgecolor='black', alpha=0.7, color='blue')
+    ax[ax1].set_title('Histogram of Column A')
+    ax[ax1].set_ylabel('Count')
+    ax[ax1].grid(axis='y')
+
+    # Plot histogram of column 'B' on the second subplot
+    df[col2].hist(ax=ax[0], bins=50, edgecolor='black', alpha=0.7, color='red')
+    ax[ax2].set_title('Histogram of Column B')
+    ax[ax2].set_xlabel('Value')
+    ax[ax2].set_ylabel('Count')
+    ax[ax2].grid(axis='y')
+
+    plt.tight_layout()
+    plt.show()    
+
+
+
+def read_model(model_fp,quantiles_df,Network):
     x,y=quantiles_df.shape
 
     model=Network(y,1,scale_factor=2)
     model.load_state_dict(torch.load(model_fp))
     model.eval()
     return model
+
+
+def setup_logging(name,mode='w',level=20):
+    logging.basicConfig(filename=f'./logs/{name}.log',level=level, filemode=mode, format='%(asctime)s %(name)s - %(levelname)s - %(message)s')
+    logging.propagate = False
+
+def log_stuff(msg='',level=20,**kwargs ) :
+    ss=''
+    if len(kwargs.keys())>1:
+        ss='\n'
+    s=f'{ss}    '+ '\n    '.join([f'{k} : {v}' for k,v in kwargs.items()])
+    msg=msg+s
+    logging.log(level,msg)
+
+
+if __name__=='__main__':
+    df=read_df('./data/test.csv')
+    #append_to_csv(df=df)
+    write_df(df=df,name='test',mode='a')
