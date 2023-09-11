@@ -240,7 +240,7 @@ def setup_logging(name,mode='w',level=20):
     logging.propagate = False
 
 def log_stuff(msg='',level=20,**kwargs ) :
-    ss=''
+    ss='\n'
     if len(kwargs.keys())>1:
         ss='\n'
     s=f'{ss}    '+ '\n    '.join([f'{k} : {v}' for k,v in kwargs.items()])
