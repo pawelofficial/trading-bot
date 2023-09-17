@@ -76,8 +76,9 @@ class mydb:
         return df 
     
     # writes df to a db ! 
-    def write_df(self,df,table='raw_data',if_exists='append'):
+    def write_df(self,df,table='historical_data',if_exists='append'):
         engine = create_engine(f'postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}')
+        df = df.drop_duplicates(subset=['epoch'])
         try:
             df.to_sql(table, engine, if_exists=if_exists, index=False)  # 'replace' will overwrite the table if it already exists. Use 'append' to add to an existing table.
         except Exception as er:
@@ -95,22 +96,30 @@ class mydb:
 if __name__=='__main__':
     
     p=mydb()
-    p.execute_dml(p.queries['truncate_table_raw_data'])
-    #p.execute_dml(p.queries['create_table_raw_data'])
+    if 0:
+        p.execute_dml(p.queries['create_table_live_data'])
+        #input('wait')
+        p.execute_dml(p.queries['create_table_historical_data'])
+        #input('wait')
+        p.execute_dml(p.queries['truncate_table_live_data'])
+        #input('wait')
+        p.execute_dml(p.queries['truncate_table_historical_data'])
+        #input('wait')
+        p.execute_dml(p.queries['create_view_data'])
+    
     
     df=pd.read_csv('./data/data.csv',sep='|')#.iloc[:100]
     p.write_df(df=df)
-    print(df)
-    r= p.execute_select('select count(*) from raw_data')
-    print(r)
-    exit(1)
+
     
-    
-    p.execute_dml(p.queries['create_table_raw_data'])
-    p.execute_dml(p.queries['truncate_table_raw_data'])
-    r= p.execute_select('select current_timestamp')
-    print(r)
-exit(1)
+#  1. load historical data to pgsql 
+#  2. load live data to pgsql 
+#  3. have dedupliacted view 
+#  4. have agg view 
+#  5. once agg view count changes / other condition - evaluate model 
+
+
+
 
 ###
 ###class mydb:

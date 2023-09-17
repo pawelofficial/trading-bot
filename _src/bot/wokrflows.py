@@ -16,9 +16,9 @@ def wf__download_data():
     auth=CoinbaseExchangeAuth()
     ca=coinbase_api(auth)
     fp=ca.bulk_download_data(
-                            start_dt='02-03-2023' # DD-MM-YYYY
-                           ,end_dt='03-03-2023'   # DD-MM-YYYY
-                           ,granularity=60*5
+                            start_dt='16-09-2023' # DD-MM-YYYY
+                           ,end_dt='26-09-2023'   # DD-MM-YYYY
+                           ,granularity=60
                            ,fname='data.csv'
                            )
     return fp 
@@ -71,11 +71,25 @@ def wf__evaluate_model():
     
 if __name__=='__main__':
 
+    auth=CoinbaseExchangeAuth()
+    ca=coinbase_api(auth)
+    gen=ca.yield_last_candle()
+    print(next(gen))
     fp=wf__download_data()
-    wf__prep_data(fp)
-    df=wf__evaluate_model()
-    msk=df['model_signal']==1
-    print(df[msk])
-#    q_df,q_fp,i_df,i_fp,s_df,signal=wf__prep_data(fp=fp)
+    
+    gen=ca.yield_last_candle()
+    while True:
+        c=next(gen)
+        print(c)
+        time.sleep(1)
+
+
+    fp=wf__download_data()
+    
+#    wf__prep_data(fp)
+#    df=wf__evaluate_model()
+#    msk=df['model_signal']==1
+#    print(df[msk])
+##    q_df,q_fp,i_df,i_fp,s_df,signal=wf__prep_data(fp=fp)
 #    wf__prep_data(fp)
 #    wf__evaluate_model()
