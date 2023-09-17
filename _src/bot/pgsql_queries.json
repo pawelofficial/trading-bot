@@ -1,0 +1,4 @@
+{
+    "create_table_raw_data": "CREATE TABLE raw_data (\n    id SERIAL PRIMARY KEY,\n    epoch BIGINT NOT NULL,\n    datetime TIMESTAMP WITHOUT TIME ZONE NOT NULL,\n    open NUMERIC(10, 2) NOT NULL,\n    high NUMERIC(10, 2) NOT NULL,\n    low NUMERIC(10, 2) NOT NULL,\n    close NUMERIC(10, 2) NOT NULL,\n    volume NUMERIC(10, 6) NOT NULL\n);"
+    ,"truncate_table_raw_data":"truncate table raw_data"
+}
