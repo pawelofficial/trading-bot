@@ -5,10 +5,10 @@ import logging
 import pandas as pd 
 import random 
 import numpy as np 
-
-
-
-
+import datetime
+import threading 
+import time 
+import queue 
 
 # mock trade desk 
 
@@ -18,6 +18,23 @@ import numpy as np
 # model training on csv ? 
     # training when new candle comes in ?
     
+
+#def threaded(fn):
+#    def wrapper(*args, **kwargs):
+#        thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
+#        thread.daemon=True            # stopping abruptly when main program stops
+#        thread.start()
+#        return thread  # Optionally return the thread if you need to interact with it later
+#    return wrapper
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        stop_event = threading.Event()
+        thread.daemon=True            # stopping abruptly when main program stops
+        thread.start()
+        return thread,stop_event  # Optionally return the thread if you need to interact with it later
+    return wrapper
 
 
 class binance_api:
@@ -52,7 +69,12 @@ class binance_api:
         self.balance_df=pd.DataFrame(columns=['quantity','dollar_amo','value', 'comment'])
         self.balance_df.loc[len(self.balance_df)]=self.balance
         self.rand=random.randint(-10,10)/100+1
-
+        self.clock_probe_time=1
+        self.q=queue.Queue(maxsize=1)
+        #self.q.put(None) # put none to queue 
+    
+    def check_queue(self):
+        return self.q.get(timeout=self.clock_probe_time * 10)
         
     def get_secrets(self):
         with open(self.secrets_fp) as f:
@@ -172,27 +194,56 @@ class binance_api:
         log_stuff(msg='ending fake market sell ',trade_d=trade_d,balance=self.balance)
         
         
-        
+    # clock checking if it's time to trade or not 
+    @threaded
+    def candle_clock(self, timescale=60,tradescale=5):                                                           # timescale - how often to trade, tradescale - how close to timescale trading should happen
+        timedelta=lambda t1,t2: (t1-t2).total_seconds()
+        while True:
+            time.sleep(self.clock_probe_time)
+            uts=int(datetime.datetime.now().timestamp())                                                         # unixtimestamp time -> 1681247182591 
+            #uts=int(self.client.get_server_time()['serverTime'])//1000                                           # binance server time 
+            ts=datetime.datetime.fromtimestamp(uts)                                                              # real time from uts -> 2023-09-17 09:16:11
+            scale_ts=datetime.datetime(ts.year,ts.month,ts.day,ts.hour,ts.minute,ts.second//timescale*timescale) # scale time now     -> 2023-09-17 09:16:00
+            next_scale_ts=scale_ts+datetime.timedelta(seconds=timescale)                                         # next scale         -> 2023-09-17 09:16:30
+            delta=timedelta(ts,next_scale_ts)
+            if delta>-1*tradescale:                                                                              # if we're close enough to next scale then it is time to trade 
+                self.time_to_trade=True 
+                #log_stuff(msg=f'time to trade',scale_ts=scale_ts,ts=ts,next_scale_ts=next_scale_ts,delta=delta  )
+            else:
+                self.time_to_trade=False 
+                #log_stuff(msg=f'no time to trade',scale_ts=scale_ts,ts=ts,next_scale_ts=next_scale_ts,delta=delta  )
+            self.q.put(self.time_to_trade)
+
+
+
+
 
 
 if __name__=='__main__':
     b=binance_api()
 
-
-    N= 5000
-    n=0
-    while n<N: 
-#        d=b.fake_market_sell()
-        
-        n+=1
-        if b.rand<1:
-            print('buying')
-            d=b.fake_market_buy()
-        else:
-            print('selloing')
-            d=b.fake_market_sell()
+    
+    thread,stop_event = b.candle_clock()
+    while True:
+        time.sleep(1)
+        result=b.check_queue()
+        print(result)
 
 
+#    N= 5000
+#    n=0
+#    while n<N: 
+##        d=b.fake_market_sell()
+#        
+#        n+=1
+#        if b.rand<1:
+#            print('buying')
+#            d=b.fake_market_buy()
+#        else:
+#            print('selloing')
+#            d=b.fake_market_sell()
+#
+#
 #    print(d)
 #    d=b.fake_market_buy()
     
