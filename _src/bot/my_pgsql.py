@@ -2,6 +2,7 @@ import psycopg2
 import json 
 from utils import setup_logging,log_stuff
 import pandas as pd 
+from sqlalchemy import create_engine
 
 class mydb:
     def __init__(self) -> None:
@@ -45,6 +46,7 @@ class mydb:
         records = self.cur.fetchall()
         return records 
     
+    # executes dml
     def execute_dml(self,query):
         try:
             self.cur.execute(query)
@@ -54,21 +56,34 @@ class mydb:
             print('uh oh! ')
             log_stuff(msg='error in executing query',er=er,query=query, level=40)
             self.reconnect()
-    def execute_select(self,query):
+    # executes sql 
+    def execute_select(self,query,nrows=-1):
+
         try:
             self.cur.execute(query)
-            records = self.cur.fetchall()
-
+            if nrows==-1:
+                records = self.cur.fetchall()
+            else:
+                records = self.cur.fetchmany(nrows)
         except psycopg2.Error as er:
             print('uh oh! ')
             log_stuff(msg='error in executing query',er=er,query=query, level=40)
             self.reconnect()
             return None
-        
         column_names = [desc[0] for desc in self.cur.description]
         df = pd.DataFrame(records, columns=column_names)
         
         return df 
+    
+    # writes df to a db ! 
+    def write_df(self,df,table='raw_data',if_exists='append'):
+        engine = create_engine(f'postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}')
+        try:
+            df.to_sql(table, engine, if_exists=if_exists, index=False)  # 'replace' will overwrite the table if it already exists. Use 'append' to add to an existing table.
+        except Exception as er:
+            print('uh oh!')
+            log_stuff(msg='error in writing df',er=er,level=40)    
+            self.reconnect()
 
 
 
@@ -78,7 +93,19 @@ class mydb:
 
 
 if __name__=='__main__':
+    
     p=mydb()
+    p.execute_dml(p.queries['truncate_table_raw_data'])
+    #p.execute_dml(p.queries['create_table_raw_data'])
+    
+    df=pd.read_csv('./data/data.csv',sep='|')#.iloc[:100]
+    p.write_df(df=df)
+    print(df)
+    r= p.execute_select('select count(*) from raw_data')
+    print(r)
+    exit(1)
+    
+    
     p.execute_dml(p.queries['create_table_raw_data'])
     p.execute_dml(p.queries['truncate_table_raw_data'])
     r= p.execute_select('select current_timestamp')
