@@ -54,6 +54,7 @@ class mydb:
             log_stuff(msg='dml succesfull',query=query,level=20)
         except psycopg2.Error as er:
             print('uh oh! ')
+            print(er)
             log_stuff(msg='error in executing query',er=er,query=query, level=40)
             self.reconnect()
     # executes sql 
@@ -67,6 +68,7 @@ class mydb:
                 records = self.cur.fetchmany(nrows)
         except psycopg2.Error as er:
             print('uh oh! ')
+            print(er)
             log_stuff(msg='error in executing query',er=er,query=query, level=40)
             self.reconnect()
             return None
@@ -93,8 +95,8 @@ class mydb:
 
 
 
+
 if __name__=='__main__':
-    
     p=mydb()
     if 0:
         p.execute_dml(p.queries['create_table_live_data'])
@@ -105,11 +107,13 @@ if __name__=='__main__':
         #input('wait')
         p.execute_dml(p.queries['truncate_table_historical_data'])
         #input('wait')
-        p.execute_dml(p.queries['create_view_data'])
-    
+        p.execute_dml(p.queries['create_vw_data'])
+        p.execute_dml(p.queries['create_vw_agg5'])
+
+    exit(1)
     
     df=pd.read_csv('./data/data.csv',sep='|')#.iloc[:100]
-    p.write_df(df=df)
+    p.write_df(df=df,table='historical_data',if_exists='append')
 
     
 #  1. load historical data to pgsql 

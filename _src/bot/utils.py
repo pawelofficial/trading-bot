@@ -248,6 +248,25 @@ def log_stuff(msg='',level=20,**kwargs ) :
     logging.log(level,msg)
 
 
+def setup_logging2(name, mode='w', level=20):
+    logger = logging.getLogger(name)
+    handler = logging.FileHandler(f'./logs/{name}.log', mode)
+    formatter = logging.Formatter('%(asctime)s %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False
+    return logger
+
+def log_stuff2(logger,msg='',level=20, **kwargs ) :
+    ss='\n'
+    if len(kwargs.keys())>1:
+        ss='\n'
+    s=f'{ss}    '+ '\n    '.join([f'{k} : {v}' for k,v in kwargs.items()])
+    msg=msg+s
+    logger.log(level,msg)
+
+
 if __name__=='__main__':
     df=read_df('./data/test.csv')
     #append_to_csv(df=df)
