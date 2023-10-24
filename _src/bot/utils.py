@@ -178,15 +178,55 @@ def plot_candlestick(df
 # evaluate a model on a dataframe containing quantiles
 def evaluate_model(model, quantiles_df, signals_df, model_column='model_signal'):
     X = torch.tensor(quantiles_df.values).float()
+
     val_loader = DataLoader(X, batch_size=32, shuffle=False)  # Make sure shuffle is False
     
     outputs_list = []
     
     for data in val_loader:
         outputs = model(data)
+        print(outputs.shape)
+        print(outputs)
+        exit(1)
         outputs_list.extend(outputs.squeeze().tolist())  # Assuming outputs are 1D tensors for each data point
     signals_df[model_column] = [int(round(i)) for i in    outputs_list ] 
+    print(len(signals_df))
+    print(len(quantiles_df))
     return signals_df
+
+
+    # evaluates and plots model with respect to it's training 
+def plot_evaluate_model(model, quantiles_df, signals_df,eval_signal ='eval_signal',model_signal='wave_signal'):
+    X = torch.tensor(quantiles_df.values).float()
+    val_loader = DataLoader(X, batch_size=32, shuffle=False)  # Make sure shuffle is False
+    outputs_list = []
+    for data in val_loader:
+        outputs = model(data)
+        outputs_list.extend(outputs.squeeze().tolist())  # Assuming outputs are 1D tensors for each data point
+    signals_df[eval_signal] = [int(round(i)) for i in    outputs_list ] 
+    
+    print(len(signals_df))
+
+    # plot candlestick 
+    d=list(signals_df.columns)
+    l=[i for i in d if 'q' not in i]
+    print(l)
+
+#    signals_df[eval_signal]
+    cols=['open','close','low','high','volume',eval_signal,model_signal]
+    tmp_df=signals_df[cols]
+    model_msk=tmp_df[model_signal]==1
+    eval_msk=tmp_df[eval_signal]==1
+    extra_sers=( (0, '^', tmp_df[model_msk][model_signal] * tmp_df[model_msk]['open']  , 'o', 'lightgreen', 'lightgreen'),
+                (0, 'v', tmp_df[eval_msk][eval_signal] * tmp_df[eval_msk]['close'] , 'o', 'red', 'red') )
+    plot_candlestick(df=tmp_df,extra_sers=extra_sers)
+    return signals_df
+
+
+
+
+
+
 
 def read_df(df_fp):
     df=pd.read_csv(df_fp,sep='|')
@@ -265,6 +305,12 @@ def log_stuff2(logger,msg='',level=20, **kwargs ) :
     s=f'{ss}    '+ '\n    '.join([f'{k} : {v}' for k,v in kwargs.items()])
     msg=msg+s
     logger.log(level,msg)
+
+
+def ar_torch_evaluate(ar : list, Network ):
+    # 
+    model=Network(len(ar),1,scale_factor=2)
+    pass 
 
 
 if __name__=='__main__':

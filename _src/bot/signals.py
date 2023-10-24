@@ -90,7 +90,7 @@ class signals:
         if shift_no is not None:
             df['wave_signal']=df['wave_signal'].shift(shift_no).fillna(0).astype(int)
         
-        return df['wave_signal'],df
+        return df['wave_signal'],df 
     
     def signal_wave(self,df,N=5):
         threshold=0.8

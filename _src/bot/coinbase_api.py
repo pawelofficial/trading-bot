@@ -55,7 +55,7 @@ class coinbase_api():
         self.base_url_pro='https://api.pro.coinbase.com'
         self.time_format='%Y-%m-%dT%H:%M:%S.%fZ'
         self.auth=auth
-        self.d={'epoch':[],'open':[],'close':[],'low':[],'high':[],'volume':[],'timestamp':[],'msg':[]} # dictionary with data 
+        self.d={'epoch':[],'open':[],'close':[],'low':[],'high':[],'volume':[],'timestamp':[]} # dictionary with data 
         self.data_df=pd.DataFrame(self.d)
         self.data_df_len=2000 # num of rows of data_df   # not using 
         self.data_fp=os.path.join(os.path.dirname(os.path.abspath(__file__)),'data')  # path to data dir 
@@ -290,6 +290,7 @@ class coinbase_api():
             granularity=granularity)
         
         while True:
+            
             print('downloading ! ')
             try:
                 request_data=gen.__next__()
@@ -298,18 +299,16 @@ class coinbase_api():
                 break 
         
             tmp_df=pd.DataFrame.from_dict(request_data['parsed_data'])
-            
             if to_df:
-                for no,row in tmp_df.iterrows(): # best way to append one df to another , thank you pandas ! 
-                    row=row.to_dict()
-                    self.bulk_df.loc[len(self.bulk_df)]=row
+                self.bulk_df = pd.concat([self.bulk_df, tmp_df], ignore_index=True)
             
             if to_csv:
                 tmp_df.to_csv(fp,mode=mode,header=header,index=False,sep='|')
                 header=False
                 mode='a'
-            
-        return fp
+        
+        
+        return self.bulk_df,fp
 
 
 class ApiUtils:

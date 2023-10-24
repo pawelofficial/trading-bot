@@ -1,5 +1,7 @@
 {
     "create_table_historical_data": "CREATE TABLE historical_data (\n    id SERIAL PRIMARY KEY,\n    epoch BIGINT NOT NULL UNIQUE,\n    timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL,\n    open NUMERIC(10, 2) NOT NULL,\n    high NUMERIC(10, 2) NOT NULL,\n    low NUMERIC(10, 2) NOT NULL,\n    close NUMERIC(10, 2) NOT NULL,\n    volume NUMERIC(10, 6) NOT NULL\n);"
+    ,"create_table_quantiles_not_null": "CREATE TABLE quantiles (\n    id SERIAL PRIMARY KEY,\n    timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL,\n    open NUMERIC(10, 2) NOT NULL,\n    high NUMERIC(10, 2) NOT NULL,\n    low NUMERIC(10, 2) NOT NULL,\n    close NUMERIC(10, 2) NOT NULL,\n    volume NUMERIC(10, 6) NOT NULL\n,ar int[] NOT NULL\n    );"
+    ,"create_table_quantiles": "CREATE TABLE quantiles (\n    id SERIAL PRIMARY KEY,\n    timestamp TIMESTAMP WITHOUT TIME ZONE ,\n    open NUMERIC(10, 2) ,\n    high NUMERIC(10, 2) ,\n    low NUMERIC(10, 2) ,\n    close NUMERIC(10, 2) ,\n    volume NUMERIC(10, 6) \n,ar int[] \n    );"
     ,"create_table_live_data": "CREATE TABLE live_data (\n    id SERIAL PRIMARY KEY,\n    epoch BIGINT NOT NULL UNIQUE,\n    timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL,\n    open NUMERIC(10, 2) NOT NULL,\n    high NUMERIC(10, 2) NOT NULL,\n    low NUMERIC(10, 2) NOT NULL,\n    close NUMERIC(10, 2) NOT NULL,\n    volume NUMERIC(10, 6) NOT NULL\n);"
     ,"truncate_table_live_data":"truncate table live_data"
     ,"truncate_table_historical_data":"truncate table historical_data"

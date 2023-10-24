@@ -33,6 +33,7 @@ def setup_logging():
 # loads signals_Df and quantiles_df 
 def load_data(n=None):
     q_df=pd.read_csv('./data/quantiles_df.csv',sep='|')
+
     s_df=pd.read_csv('./data/signals_df.csv',sep='|')
     if n is None:
         return q_df,s_df['wave_signal']

@@ -15,6 +15,9 @@ import torch
 from scipy.stats import norm
 import matplotlib.pyplot as plt 
 import datetime 
+import logging 
+logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s',filename='indicators.log',filemode='w')
+
 
 
 class indicators:
@@ -24,6 +27,7 @@ class indicators:
 
         self.nlq_precision=4
         self.nlq=self.make_nlq(N=50)
+
         
         self.tformat='%Y-%m-%d %H:%M:%S'
         
@@ -33,6 +37,7 @@ class indicators:
             'fun_how_green_streak':self.fun_how_green_streak,
             'fun_cumdist':self.fun_cumdist,
             'fun_rsi':self.fun_rsi,
+            'fun_rsi2':self.fun_rsi2,
             'fun_kama':self.fun_kama,
             'fun_ao':self.fun_ao,
             'fun_adi':self.fun_adi,
@@ -43,6 +48,7 @@ class indicators:
             'fun_wband':self.fun_wband,
             #'fun_adx':self.fun_adx,
             'fun_macd':self.fun_macd,
+            'fun_macd2':self.fun_macd2,
             'fun_aroon':self.fun_aroon,
             'fun_cci':self.fun_cci,
             'fun_cumret':self.fun_cumret,
@@ -72,7 +78,7 @@ class indicators:
         if not isinstance(new_df, pd.DataFrame):
             raise ValueError("Expected a pandas DataFrame!")
         self._df = new_df
-        self.basic_columns = new_df.columns  # Update the columns attribute when a new dataframe is set
+        #self.basic_columns = new_df.columns  # Update the columns attribute when a new dataframe is set
 
     
     # returns list of values betweeb 0-1 inclusive with non linear distribution
@@ -102,6 +108,7 @@ class indicators:
             nq1 = str(q1).replace('0.', '')[:self.nlq_precision + 1]
             nq2 = str(q2).replace('0.', '')[:self.nlq_precision + 1]
             colname = f'{col}_q_{nq1}_{nq2}'
+            logging.info(msg=f'{colname} {q1}  {q2}')
 
             quantile1 = df[col].rolling(window=window).quantile(quantile=q1)
             quantile2 = df[col].rolling(window=window).quantile(quantile=q2)
@@ -118,15 +125,13 @@ class indicators:
     def bucketize_df(self):
         for name,f in self.funs_d.items():
             col_name=f()    
-            print(name,f)
+            #print(name,f)
             self.bucketize_col(col=col_name)
             
 
     def dump_df(self,df=None,fp=None,cols=None,fname='indicators'):
         if cols is None:
-            print('here')
             cols=self.basic_columns+self.quantile_columns+self.fun_columns
-            
         if df is None:
             df=self.df
         if fp is None:
@@ -176,6 +181,10 @@ class indicators:
 
 
         agg_df.rename(columns={dt_col:timestamp_name},inplace=True)
+        # add epoch column to agg_df based on start_timestamp
+        agg_df['epoch']=agg_df[timestamp_name].apply(lambda x: int(datetime.datetime.timestamp(datetime.datetime.strptime(x,self.tformat))))
+        
+        
         if inplace:
             self.df=agg_df
         
@@ -229,6 +238,14 @@ class indicators:
         f= lambda df,window : tam.rsi(close=df['close'],window=window)
         self.df[colname]=f(df=self.df,window=window)
         return colname
+    
+    def fun_rsi2(self,window=36):
+        colname = f'f-rsi2-close-{window}'
+        self.fun_columns.append(colname)
+        f= lambda df,window : tam.rsi(close=df['close'],window=window)
+        self.df[colname]=f(df=self.df,window=window)
+        return colname
+    
     
     def fun_kama(self, window=25, pow1=25, pow2=10):
         colname = f'f-kama-close-{window}-{pow1}-{pow2}'
@@ -292,14 +309,14 @@ class indicators:
         return colname
     
     def fun_donchian_pband(self, window : int = 20 ):
-        colname = f'f-donchian-close-{window}'
+        colname = f'f-pdonchian-close-{window}'
         self.fun_columns.append(colname)
         f= lambda df,window : tavl.donchian_channel_pband(df['high'],df['low'],df['close'],window)
         self.df[colname]=f(df=self.df,window=window)
         return colname
         
     def fun_donchian_wband(self, window : int = 20 ):
-        colname = f'f-donchian-close-{window}'
+        colname = f'f-wdonchian-close-{window}'
         self.fun_columns.append(colname)
         f= lambda df,window : tavl.donchian_channel_wband(df['high'],df['low'],df['close'],window)
         self.df[colname]=f(df=self.df,window=window)
@@ -318,6 +335,14 @@ class indicators:
         f= lambda df,window_slow,window_fast : tat.macd(close=df['close'],window_slow=window_slow,window_fast=window_fast)
         self.df[colname]=f(df=self.df,window_slow=window_slow,window_fast=window_fast)
         return colname
+
+    def fun_macd2(self, window_slow : int = 12,window_fast: int = 6 ):
+        colname = f'f-macd2-{window_slow}-{window_fast}'
+        self.fun_columns.append(colname)
+        f= lambda df,window_slow,window_fast : tat.macd(close=df['close'],window_slow=window_slow,window_fast=window_fast)
+        self.df[colname]=f(df=self.df,window_slow=window_slow,window_fast=window_fast)
+        return colname
+
     
     def fun_mass(self, window_slow : int = 25,window_fast: int = 9 ):
         colname = f'f-mass-{window_slow}-{window_fast}'
@@ -365,9 +390,39 @@ class indicators:
 
     
 if __name__=='__main__':
-    i=indicators()
+    i=indicators(fp='./data/data.csv')
     agg_df=i.aggregate_df()
-    print(agg_df)
+    i.bucketize_df()
+    
+    df=i.df
+    print(df.shape)                                                     # 1127 columns 
+    print(len(i.quantile_columns))                                      # 1100 columns 
+    i.dump_df(cols=i.quantile_columns,fname='quantiles_df')
+    
+    q_df=pd.read_csv('./data/quantiles_df.csv',sep='|')
+    print(q_df.shape)                                                   # 1200 
+    
+    cols1=list(df.columns)
+    cols2=list(q_df.columns)
+    
+    diff=list(set(cols2)-set(cols1))
+    
+    b=diff[-1] in i.quantile_columns
+    print(b)
+    print(diff[-1])
+    exit(1)    
+    print(i.basic_columns)
+
+    
+    print(i.quantile_columns)
+    print(i.basic_columns)
+    print(i.fun_columns)
+    # print lens of columns 
+    print(len(i.quantile_columns))   #
+    print(len(i.basic_columns))
+    print(len(i.fun_columns))
+    print(i.df.shape)
+    
 
     exit(1)
     
