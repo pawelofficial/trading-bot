@@ -182,7 +182,7 @@ class indicators:
 
         agg_df.rename(columns={dt_col:timestamp_name},inplace=True)
         # add epoch column to agg_df based on start_timestamp
-        agg_df['epoch']=agg_df[timestamp_name].apply(lambda x: int(datetime.datetime.timestamp(datetime.datetime.strptime(x,self.tformat))))
+        #agg_df['epoch']=agg_df[timestamp_name].apply(lambda x: int(datetime.datetime.timestamp(datetime.datetime.strptime(x,self.tformat))))
         
         
         if inplace:

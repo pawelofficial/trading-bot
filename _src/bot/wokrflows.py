@@ -14,7 +14,7 @@ install()
 
 
 # 1st thing - download data 
-def wf__download_data(write_to_pg=True
+def wf__download_data(write_to_pg=False
                       ,start_dt=None
                       ,end_dt=None):
 
@@ -44,8 +44,7 @@ def wf__download_data(write_to_pg=True
         p.write_df(df=df,table='historical_data',if_exists='append',deduplicate_on='epoch')
     return fp 
     
-    
-    
+
 def wf__prep_data():
     p=mydb()
     df=p.execute_select('select  start_time as timestamp, open, close, low, high, volume from vw_agg5 order by start_epoch asc limit 300' )
@@ -175,10 +174,9 @@ def wf__pgsql_evaluate():
 
 
 if __name__=='__main__':
-    wf__download_data()
-    exit(1)
-    wf__prep_data()
-    exit(1)
+    #wf__download_data() # downloads data.csv with open,close,low,high,volume,timestamp on 1m 
+    wf__prep_data_old() # makes indicators.csv ( data with indicators) and quantiles.csv and signals.csv ( input to NN )
+    # train model -> torch_model4.py 
 
 #    wf__download_data()
 #    wf__evaluate_model()

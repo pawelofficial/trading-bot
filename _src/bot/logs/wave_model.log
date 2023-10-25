@@ -1,0 +1,389 @@
+root - WARNING - starting training
+root - WARNING - ------------202308122051--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308122048.pth
+    - Epochs: 300
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 22.865
+    - Validation Accuracy: 0.755
+    - F1 Score: 0.746
+    - TRUE POSITIVES (1,1) TP:  216 (0.7322)
+    - TRUE NEGATIVES (0,0) TN:  238 (0.77778)
+    - FALSE NEGATIVES (0,1) FN: 79
+    - FALSE POSITIVES (1,0) FP: 68 (bad one)
+    - Number_of_1s_in_true_labels: 295
+    - Number_of_0s_in_true_labels: 306
+    - Number_of_1s_in_predictions: 284
+    - Number_of_0s_in_predictions: 317
+    - Dataset Size : 601
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308122056--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308122053.pth
+    - Epochs: 300
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 32.230
+    - Validation Accuracy: 0.840
+    - F1 Score: 0.839
+    - TRUE POSITIVES (1,1) TP:  251 (0.81494)
+    - TRUE NEGATIVES (0,0) TN:  254 (0.86689)
+    - FALSE NEGATIVES (0,1) FN: 57
+    - FALSE POSITIVES (1,0) FP: 39 (bad one)
+    - Number_of_1s_in_true_labels: 308
+    - Number_of_0s_in_true_labels: 293
+    - Number_of_1s_in_predictions: 290
+    - Number_of_0s_in_predictions: 311
+    - Dataset Size : 601
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308122101--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308122057.pth
+    - Epochs: 300
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 54.558
+    - Validation Accuracy: 0.887
+    - F1 Score: 0.886
+    - TRUE POSITIVES (1,1) TP:  265 (0.84395)
+    - TRUE NEGATIVES (0,0) TN:  268 (0.9338)
+    - FALSE NEGATIVES (0,1) FN: 49
+    - FALSE POSITIVES (1,0) FP: 19 (bad one)
+    - Number_of_1s_in_true_labels: 314
+    - Number_of_0s_in_true_labels: 287
+    - Number_of_1s_in_predictions: 284
+    - Number_of_0s_in_predictions: 317
+    - Dataset Size : 601
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308122105--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308122102.pth
+    - Epochs: 300
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 39.144
+    - Validation Accuracy: 0.867
+    - F1 Score: 0.846
+    - TRUE POSITIVES (1,1) TP:  219 (0.76042)
+    - TRUE NEGATIVES (0,0) TN:  302 (0.96486)
+    - FALSE NEGATIVES (0,1) FN: 69
+    - FALSE POSITIVES (1,0) FP: 11 (bad one)
+    - Number_of_1s_in_true_labels: 288
+    - Number_of_0s_in_true_labels: 313
+    - Number_of_1s_in_predictions: 230
+    - Number_of_0s_in_predictions: 371
+    - Dataset Size : 601
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - ------------202308130834--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308130834.pth
+    - Epochs: 10
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 54.004
+    - Validation Accuracy: 0.938
+    - F1 Score: 0.936
+    - TRUE POSITIVES (1,1) TP:  1371 (0.88281)
+    - TRUE NEGATIVES (0,0) TN:  1443 (0.99655)
+    - FALSE NEGATIVES (0,1) FN: 182
+    - FALSE POSITIVES (1,0) FP: 5 (bad one)
+    - Number_of_1s_in_true_labels: 1553
+    - Number_of_0s_in_true_labels: 1448
+    - Number_of_1s_in_predictions: 1376
+    - Number_of_0s_in_predictions: 1625
+    - Dataset Size : 3001
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308130836--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308130836.pth
+    - Epochs: 10
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 54.051
+    - Validation Accuracy: 0.938
+    - F1 Score: 0.936
+    - TRUE POSITIVES (1,1) TP:  1371 (0.88281)
+    - TRUE NEGATIVES (0,0) TN:  1443 (0.99655)
+    - FALSE NEGATIVES (0,1) FN: 182
+    - FALSE POSITIVES (1,0) FP: 5 (bad one)
+    - Number_of_1s_in_true_labels: 1553
+    - Number_of_0s_in_true_labels: 1448
+    - Number_of_1s_in_predictions: 1376
+    - Number_of_0s_in_predictions: 1625
+    - Dataset Size : 3001
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - ------------202308130856--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308130854.pth
+    - Epochs: 101
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1    1553
+0    1448
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 60.794
+    - Validation Accuracy: 0.939
+    - F1 Score: 0.938
+    - TRUE POSITIVES (1,1) TP:  1371 (0.88281)
+    - TRUE NEGATIVES (0,0) TN:  1448 (1.0)
+    - FALSE NEGATIVES (0,1) FN: 182
+    - FALSE POSITIVES (1,0) FP: 0 (bad one)
+    - Number_of_1s_in_true_labels: 1553
+    - Number_of_0s_in_true_labels: 1448
+    - Number_of_1s_in_predictions: 1371
+    - Number_of_0s_in_predictions: 1630
+    - Dataset Size : 3001
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308131340--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308131337.pth
+    - Epochs: 101
+    
+
+    Data Info:
+    - X Shape: (5701, 1200)
+    - Value Counts: False    3238
+True     2463
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 60.395
+    - Validation Accuracy: 0.976
+    - F1 Score: 0.971
+    - TRUE POSITIVES (1,1) TP:  2326 (0.94438)
+    - TRUE NEGATIVES (0,0) TN:  3238 (1.0)
+    - FALSE NEGATIVES (0,1) FN: 137
+    - FALSE POSITIVES (1,0) FP: 0 (bad one)
+    - Number_of_1s_in_true_labels: 2463
+    - Number_of_0s_in_true_labels: 3238
+    - Number_of_1s_in_predictions: 2326
+    - Number_of_0s_in_predictions: 3375
+    - Dataset Size : 5701
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - ------------202308131416--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308131413.pth
+    - Epochs: 101
+    
+
+    Data Info:
+    - X Shape: (5701, 1200)
+    - Value Counts: False    3238
+True     2463
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 66.181
+    - Validation Accuracy: 0.976
+    - F1 Score: 0.971
+    - TRUE POSITIVES (1,1) TP:  2326 (0.94438)
+    - TRUE NEGATIVES (0,0) TN:  3238 (1.0)
+    - FALSE NEGATIVES (0,1) FN: 137
+    - FALSE POSITIVES (1,0) FP: 0 (bad one)
+    - Number_of_1s_in_true_labels: 2463
+    - Number_of_0s_in_true_labels: 3238
+    - Number_of_1s_in_predictions: 2326
+    - Number_of_0s_in_predictions: 3375
+    - Dataset Size : 5701
+    - comment :  bce loss explicit formula with weights added to false positives
+    
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - starting training
+root - WARNING - ------------202308131622--------------
+
+    Model Info:
+    - Model: wave_model
+    - Model Path: ./models/wave_models/wave_202308131620.pth
+    - Epochs: 101
+    
+
+    Data Info:
+    - X Shape: (3001, 1200)
+    - Value Counts: 1.0    1591
+0.0    1410
+Name: wave_signal, dtype: int64
+    - File Path: ./data/data_backups/BTC-USD2022-01-01_2022-02-03.csv
+    
+
+    Training Info:
+    - NLQ Number: 50
+    - NLQ Steepness: 15
+    - NLQ Accuracy: 5
+    
+
+    Metrics:
+    - Average Validation Loss: 56.968
+    - Validation Accuracy: 0.937
+    - F1 Score: 0.937
+    - TRUE POSITIVES (1,1) TP:  1404 (0.88246)
+    - TRUE NEGATIVES (0,0) TN:  1409 (0.99929)
+    - FALSE NEGATIVES (0,1) FN: 187
+    - FALSE POSITIVES (1,0) FP: 1 (bad one)
+    - Number_of_1s_in_true_labels: 1591
+    - Number_of_0s_in_true_labels: 1410
+    - Number_of_1s_in_predictions: 1405
+    - Number_of_0s_in_predictions: 1596
+    - Dataset Size : 3001
+    - comment :  bce loss explicit formula with weights added to false positives
+    

@@ -28,8 +28,15 @@ share/python-wheels/
 *.egg
 MANIFEST
 *csv
+!*data.csv
+!*agg_df.csv 
+*!indicators_df.csv 
+!*quantiles_df.csv 
+!*returns_df.csv
 *.gz
 *.pth
+!*wave_loop.pth
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -61,6 +68,8 @@ coverage.xml
 
 # Django stuff:
 *.log
+!*wave_model.log
+!*wave_202310250836.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
